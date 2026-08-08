@@ -18,6 +18,11 @@
   a.btn { display: inline-block; padding: 12px 22px; border-radius: 11px; text-decoration: none;
     font-weight: 600; font-size: .95rem; border: 1px solid #00000022; color: #1a1a1a; background: #fff; }
   a.btn.primary { background: #2f6bff; color: #fff; border-color: transparent; }
+  /* The capital I is a bare stem in every UI font on this page, so "GroupIt" set in one colour
+     reads "Grouplt" — the one letter that carries the two words apart is the one the typeface
+     will not distinguish. The accent does the separating, exactly as the in-game wordmark and the
+     store banner do it. */
+  h1 .it { color: #2f6bff; }
   footer { margin-top: 40px; color: #9a9aa4; font-size: .82rem; }
   footer a { color: inherit; }
   @media (prefers-color-scheme: dark) {
@@ -28,8 +33,8 @@
 </head>
 <body>
   <main class="card">
-    <img class="icon" src="icon.png" alt="GroupIt icon">
-    <h1>GroupIt</h1>
+    <img class="icon" src="icon.png" alt="GroupIt icon" width="132" height="132">
+    <h1>Group<span class="it">It</span></h1>
     <p class="tag">Every cell is light or dark. The numbers tell you which.</p>
     <div class="btns">
       <a class="btn primary" href="privacy-policy.html">Privacy Policy</a>

@@ -17,6 +17,8 @@
     padding: 14px; border-radius: 14px; background: #fff; border: 1px solid #0000001a; }
   a.game img, a.game .ph { width: 60px; height: 60px; border-radius: 14px; background: #8882; flex: none; }
   a.game strong { display: block; font-size: 1.02rem; }
+  /* GroupIt only: the capital I is a bare stem in these UI fonts, so one colour reads "Grouplt". */
+  a.game strong .it { color: #2f6bff; }
   a.game span { display: block; color: #7a7a84; font-size: .85rem; margin-top: 2px; }
   footer { text-align: center; color: #9a9aa4; font-size: .82rem; margin-top: 44px; }
   footer a { color: inherit; }
@@ -65,7 +67,7 @@
       <img src="brewble/icon.png" alt=""><div><strong>Brewble</strong><span>Never touch the pieces — tilt the whole cup.</span></div>
     </a>
     <a class="game" href="groupit/">
-      <img src="groupit/icon.png" alt=""><div><strong>GroupIt</strong><span>Every cell is light or dark. The numbers tell you which.</span></div>
+      <img src="groupit/icon.png" alt=""><div><strong>Group<span class="it">It</span></strong><span>Every cell is light or dark. The numbers tell you which.</span></div>
     </a>
     <a class="game" href="polarize/">
       <img src="polarize/icon.png" alt=""><div><strong>Polarize</strong><span>Live on Google Play</span></div>

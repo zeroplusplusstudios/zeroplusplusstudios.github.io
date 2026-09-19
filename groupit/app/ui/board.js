@@ -18,6 +18,7 @@ const Gap = 0.055; // between cells, in cells
 const Radius = 0.16; // cell corner radius, in cells
 export class BoardView {
     canvas;
+    /** Not readonly: the chapter page re-points one view at 154 boards. See `load`. */
     play;
     #ctx;
     #cell = 0;
@@ -42,6 +43,32 @@ export class BoardView {
         if (ctx === null)
             throw new Error('this browser gave no 2d canvas context');
         this.#ctx = ctx;
+        this.#adopt(play);
+        this.#bindInput();
+    }
+    /**
+     * Point this view at a different board.
+     *
+     * The chapter page plays 154 boards through one canvas, and building a second BoardView over
+     * the same element would bind a second set of pointer listeners to it — every tap then landing
+     * twice, once per live view, with no way to take the first one's listeners off again. So the
+     * view is built once and re-pointed.
+     *
+     * Everything the OLD board left behind goes with it. The margin gutters are per-board: a
+     * board with tally clues reserves a left gutter, and keeping that reservation on a board
+     * without them draws the grid offset from the cells the pointer maths thinks it is hitting.
+     * And a load can land mid-press — a tile tapped while a finger is still down on the last
+     * board — so the stroke state and any pending hold timer are dropped too, or the first
+     * gesture on the new board finishes one that belonged to the old one.
+     */
+    load(play) {
+        this.#adopt(play);
+        this.resize();
+    }
+    #adopt(play) {
+        this.play = play;
+        this.#padLeft = 0;
+        this.#padTop = 0;
         for (const c of play.puzzle.clues) {
             if (!isMargin(c))
                 continue;
@@ -50,7 +77,14 @@ export class BoardView {
             else
                 this.#padTop = Pad; // a column clue prints above it
         }
-        this.#bindInput();
+        clearTimeout(this.#holdTimer);
+        this.#holdTimer = undefined;
+        this.#pointerDown = false;
+        this.#held = false;
+        this.#strokeActive = false;
+        this.#strokeTone = Mark.Unknown;
+        this.#startCell = -1;
+        this.#lastCell = -1;
     }
     // ─────────────────────────────────────────────────────────────────── layout
     resize() {

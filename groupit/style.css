@@ -130,3 +130,48 @@ footer { border-top: 1px solid var(--line); margin-top: 2rem; padding: 1.5rem 0 
 footer a { text-decoration-color: var(--line); }
 
 @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
+
+/* ── the sample chapter ─────────────────────────────────────────────────── */
+
+.eyebrow {
+  margin: 0 0 .5rem; font-size: .74rem; font-weight: 800; letter-spacing: .1em;
+  text-transform: uppercase; color: var(--accent);
+}
+.teaches { color: var(--muted); }
+
+/* A part is the chapter's own structure, not a way of breaking up a long list: a stretch of
+   boards exists because there is one technique it wants you to find, and that line is it. */
+.part { padding: 1.6rem 0 .4rem; border-top: 1px solid var(--line); margin-top: 1.4rem; }
+.part:first-child { border-top: 0; margin-top: 0; }
+.parthead { display: flex; align-items: baseline; gap: .6rem; flex-wrap: wrap; }
+.parthead h2 { font-size: 1.15rem; font-weight: 800; }
+.part .teaches { margin: .4rem 0 0; font-size: .93rem; max-width: 38rem; }
+
+.tiles {
+  display: grid; gap: .45rem; margin-top: .9rem;
+  grid-template-columns: repeat(auto-fill, minmax(3.4rem, 1fr));
+}
+.tile {
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: .05rem;
+  padding: .45rem .2rem; border-radius: .6rem; line-height: 1.1;
+  background: var(--panel); border: 1px solid var(--line); color: var(--ink);
+}
+.tile .n { font-weight: 800; font-size: .95rem; font-variant-numeric: tabular-nums; }
+.tile .s { font-size: .64rem; font-weight: 700; color: var(--muted); letter-spacing: .02em; }
+/* Solved is a COLOUR, not a dimming: the accent ring and the gold stars say "done", and the
+   number stays exactly as legible as it was before it was earned. */
+.tile.done { border-color: var(--accent); }
+.tile.done .s { color: var(--accent); }
+
+.playhead {
+  display: flex; align-items: center; justify-content: space-between; gap: .75rem;
+  padding-bottom: .2rem;
+}
+
+/* #broken is the only error this page can show — a baked payload that would not decode, which
+   test/chapter.ts decodes all 154 of to rule out. It is a paragraph, not a .status child. */
+p.bad { color: var(--broken); font-weight: 700; }
+
+/* The board half of the chapter page keeps the picker's measure, so switching between them does
+   not change how wide the page is. */
+#play { width: 100%; max-width: 46rem; margin: 0 auto; }

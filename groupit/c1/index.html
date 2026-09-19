@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>First Light — the free GroupIt chapter</title>
+<meta name="description" content="The whole first chapter of GroupIt, free and in your browser: 154 boards, six ideas, no app and no account.">
+
+<meta property="og:type" content="website">
+<meta property="og:title" content="First Light — a free GroupIt chapter">
+<meta property="og:description" content="154 boards, six ideas, in your browser. Every cell is Light or Shadow; the numbers tell you how big each patch is.">
+<meta property="og:image" content="../card.png">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="theme-color" content="#F4F3EE" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#1B1D22" media="(prefers-color-scheme: dark)">
+<link rel="icon" href="../icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&display=swap">
+<link rel="stylesheet" href="../style.css">
+</head>
+<body>
+
+<header class="top">
+  <a class="wordmark" href="../">GroupIt <span>· chapter one</span></a>
+  <div class="chips">
+    <span class="chip" id="progress" hidden></span>
+    <span class="chip" id="which" hidden></span>
+    <span class="chip" id="shape" hidden></span>
+  </div>
+</header>
+
+<main style="align-items:stretch;justify-content:flex-start">
+
+<!-- The picker. The page opens here, at rest, with the whole chapter visible: six parts, each
+     with the one idea behind it, and the boards growing across them. -->
+<div id="picker" class="wrap">
+  <section class="hero" style="padding:2.25rem 0 .5rem">
+    <p class="eyebrow">Chapter one, free</p>
+    <h1 id="chapterTitle"></h1>
+    <p class="lede" id="chapterTagline"></p>
+    <p class="teaches lede" id="chapterTeaches" style="font-size:.98rem"></p>
+  </section>
+
+  <p class="bad" id="broken" hidden></p>
+
+  <div id="parts"></div>
+
+  <section class="getit" style="margin:1rem 0 0;text-align:center">
+    <p>This is one chapter of nineteen. The rest of them — and 6,233 boards that never end — are
+       in the app.</p>
+    <a href="../"><button class="primary">What is GroupIt?</button></a>
+  </section>
+</div>
+
+<!-- The board. One canvas for all 154: BoardView.load re-points it. -->
+<div id="play" hidden>
+  <div id="board">
+    <div class="playhead wrap">
+      <button id="back">← All boards</button>
+      <span class="chip" id="partOf"></span>
+    </div>
+    <div class="stage"><canvas id="canvas" aria-label="A GroupIt board"></canvas></div>
+    <div class="status">
+      <span id="left"></span>
+      <span class="bad" id="warn" hidden></span>
+    </div>
+    <div class="actions">
+      <button id="tone" class="tone" title="Which tone a tap paints"></button>
+      <button id="undo" disabled>Undo</button>
+      <button id="reset">Reset</button>
+      <button id="share">Share</button>
+    </div>
+  </div>
+
+  <div class="card" id="win" hidden style="margin-inline:auto">
+    <div class="stars" id="winStars"></div>
+    <h2 id="winTitle"></h2>
+    <p id="winNote"></p>
+    <div class="getit">
+      <div class="actions" style="padding-bottom:0">
+        <button class="primary" id="next" hidden></button>
+        <button id="backToList">All boards</button>
+      </div>
+      <p id="finished" hidden>That is the whole chapter. There are eighteen more in the app.</p>
+    </div>
+  </div>
+</div>
+
+</main>
+
+<footer><div class="wrap">
+  GroupIt is made by Zero Plus Plus Studios ·
+  <a href="../privacy-policy.html">Privacy</a> ·
+  <a href="../terms-of-service.html">Terms</a>
+</div></footer>
+
+<script type="module" src="../app/ui/chapter.js"></script>
+</body>
+</html>

@@ -1,0 +1,21 @@
+{
+  "applinks": {
+    "details": [
+      {
+        "appIDs": [
+          "NKBQ656CY7.com.zeroplusplus.groupit"
+        ],
+        "components": [
+          {
+            "/": "/groupit/b/*",
+            "comment": "a shared board"
+          }
+        ],
+        "appID": "NKBQ656CY7.com.zeroplusplus.groupit",
+        "paths": [
+          "/groupit/b/*"
+        ]
+      }
+    ]
+  }
+}

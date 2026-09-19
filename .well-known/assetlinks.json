@@ -1,0 +1,14 @@
+[
+  {
+    "relation": [
+      "delegate_permission/common.handle_all_urls"
+    ],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.zeroplusplus.groupit",
+      "sha256_cert_fingerprints": [
+        "8B:A7:E9:57:8D:48:42:A8:CB:E1:48:40:FC:4A:F3:14:BD:BD:CC:96:07:43:5B:FA:E3:91:0C:1B:EA:C7:18:FC"
+      ]
+    }
+  }
+]

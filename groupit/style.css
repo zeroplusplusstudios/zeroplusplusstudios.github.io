@@ -1,0 +1,132 @@
+/* GroupIt on the web. The palette is the app's own Slate theme — a board on this page must be
+   the same colour as the same board in the app, or the player does not recognise it as theirs.
+   Values are pinned in src/ui/palette.ts and by ColourThemeTests.SlateIsTheShippedBoard. */
+
+:root {
+  --backdrop: #F4F3EE;
+  --panel: #FFFFFF;
+  --ink: #1B1D22;
+  --muted: #5F6573;
+  --line: #E1E0D8;
+  --accent: #E8B45A;
+  --broken: #A8082E;
+  --shadow: 0 1px 2px rgba(27, 29, 34, .05), 0 6px 20px rgba(27, 29, 34, .06);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --backdrop: #1B1D22;
+    --panel: #262930;
+    --ink: #F0F1EC;
+    --muted: #8A919E;
+    --line: #333740;
+    --broken: #FFB9B2;
+    --shadow: 0 1px 2px rgba(0, 0, 0, .3), 0 6px 20px rgba(0, 0, 0, .35);
+  }
+}
+
+:root[data-theme="dark"] {
+  --backdrop: #1B1D22;
+  --panel: #262930;
+  --ink: #F0F1EC;
+  --muted: #8A919E;
+  --line: #333740;
+  --broken: #FFB9B2;
+  --shadow: 0 1px 2px rgba(0, 0, 0, .3), 0 6px 20px rgba(0, 0, 0, .35);
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  background: var(--backdrop);
+  color: var(--ink);
+  font: 400 16px/1.55 "Nunito", ui-rounded, -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+  -webkit-text-size-adjust: 100%;
+}
+
+body { min-height: 100dvh; display: flex; flex-direction: column; }
+
+h1, h2, h3 { line-height: 1.2; text-wrap: balance; margin: 0; letter-spacing: -.01em; }
+
+a { color: inherit; }
+
+.wrap { width: 100%; max-width: 46rem; margin: 0 auto; padding: 0 1.25rem; }
+
+/* ── the board page ─────────────────────────────────────────────────────── */
+
+.top {
+  display: flex; align-items: center; justify-content: space-between; gap: .75rem;
+  padding: .85rem 1.25rem; border-bottom: 1px solid var(--line);
+}
+.wordmark { font-weight: 800; letter-spacing: -.02em; font-size: 1.05rem; text-decoration: none; }
+.wordmark span { color: var(--muted); font-weight: 600; }
+
+.chips { display: flex; gap: .4rem; flex-wrap: wrap; }
+.chip {
+  font-size: .72rem; font-weight: 700; letter-spacing: .04em; text-transform: uppercase;
+  padding: .26rem .55rem; border-radius: 999px; background: var(--panel);
+  border: 1px solid var(--line); color: var(--muted); white-space: nowrap;
+}
+
+main { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 1rem 0 0; }
+
+#board { display: flex; flex-direction: column; align-items: center; gap: .9rem; width: 100%; }
+
+.stage {
+  display: flex; justify-content: center; width: 100%;
+  padding: .9rem; border-radius: 1.1rem; background: var(--panel); box-shadow: var(--shadow);
+}
+canvas { display: block; max-width: 100%; }
+
+.status { min-height: 1.5rem; display: flex; gap: .6rem; align-items: center; font-size: .9rem; color: var(--muted); }
+.status .bad { color: var(--broken); font-weight: 700; }
+
+.actions { display: flex; gap: .5rem; flex-wrap: wrap; justify-content: center; padding-bottom: 1.5rem; }
+button {
+  font: inherit; font-weight: 700; font-size: .92rem;
+  padding: .6rem 1.05rem; border-radius: .7rem; cursor: pointer;
+  background: var(--panel); color: var(--ink); border: 1px solid var(--line);
+}
+button:hover:not(:disabled) { border-color: var(--muted); }
+button:disabled { opacity: .45; cursor: default; }
+button.tone { padding: .45rem .5rem; display: inline-flex; align-items: center; }
+.swatch {
+  display: inline-block; min-width: 4.4rem; padding: .22rem .5rem; border-radius: .45rem;
+  font-size: .82rem; font-weight: 700; letter-spacing: .01em;
+}
+
+button.primary { background: var(--accent); border-color: var(--accent); color: #1A1C21; }
+button:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+
+/* ── win, loading, error ────────────────────────────────────────────────── */
+
+.card {
+  text-align: center; background: var(--panel); border: 1px solid var(--line);
+  border-radius: 1.1rem; padding: 1.4rem 1.25rem; box-shadow: var(--shadow);
+  margin: 0 1.25rem 1.25rem; max-width: 26rem;
+}
+.card h2 { font-size: 1.5rem; }
+.stars { font-size: 1.7rem; color: var(--accent); letter-spacing: .12em; margin: .35rem 0 .15rem; }
+.card p { color: var(--muted); margin: .35rem 0 0; font-size: .92rem; }
+
+.getit { margin-top: 1.1rem; padding-top: 1.1rem; border-top: 1px solid var(--line); }
+.getit p { margin-bottom: .7rem; }
+
+.quiet { color: var(--muted); font-size: .9rem; text-align: center; padding: 2rem 1.25rem; }
+
+/* ── the landing page ───────────────────────────────────────────────────── */
+
+.hero { padding: 3rem 0 1.5rem; }
+.hero h1 { font-size: clamp(2rem, 7vw, 3rem); font-weight: 800; }
+.hero .lede { color: var(--muted); font-size: 1.05rem; max-width: 34rem; margin: .8rem 0 0; }
+
+.rules { display: grid; gap: .8rem; padding: 1.5rem 0; grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr)); }
+.rule { background: var(--panel); border: 1px solid var(--line); border-radius: .9rem; padding: 1rem 1.1rem; }
+.rule h3 { font-size: .78rem; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
+.rule p { margin: .45rem 0 0; font-size: .95rem; }
+
+footer { border-top: 1px solid var(--line); margin-top: 2rem; padding: 1.5rem 0 2.5rem; color: var(--muted); font-size: .85rem; }
+footer a { text-decoration-color: var(--line); }
+
+@media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }

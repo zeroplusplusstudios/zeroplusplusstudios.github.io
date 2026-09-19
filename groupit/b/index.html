@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>A GroupIt board</title>
+<meta name="description" content="Someone shared a GroupIt board. Play it here — no app, no account.">
+
+<!-- The link-preview card. This is the highest-leverage markup on the site: it is the difference
+     between a link people tap and a link people scroll past, because a shared board arrives in a
+     chat bubble and this is all the recipient sees before deciding. -->
+<meta property="og:type" content="website">
+<meta property="og:title" content="Play this GroupIt board">
+<meta property="og:description" content="A two-tone deduction puzzle. Every cell is Light or Shadow; the numbers tell you how big each patch is. No app needed.">
+<meta property="og:image" content="../card.png">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="theme-color" content="#F4F3EE" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#1B1D22" media="(prefers-color-scheme: dark)">
+<link rel="icon" href="../icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&display=swap">
+<link rel="stylesheet" href="../style.css">
+</head>
+<body>
+
+<header class="top">
+  <a class="wordmark" href="../">GroupIt <span>· shared board</span></a>
+  <div class="chips">
+    <span class="chip" id="size">–</span>
+    <span class="chip" id="rule" hidden></span>
+  </div>
+</header>
+
+<main>
+  <p class="quiet" id="loading">Opening the board…</p>
+
+  <div id="board" hidden>
+    <div class="stage"><canvas id="canvas" aria-label="GroupIt board"></canvas></div>
+    <div class="status">
+      <span id="left"></span>
+      <span class="bad" id="warn" hidden></span>
+    </div>
+    <div class="actions">
+      <button id="tone" class="tone" title="Which tone a tap paints"></button>
+      <button id="undo" disabled>Undo</button>
+      <button id="reset">Reset</button>
+      <button id="share">Share this board</button>
+    </div>
+  </div>
+
+  <div class="card" id="win" hidden>
+    <div class="stars" id="winStars"></div>
+    <h2 id="winTitle"></h2>
+    <p id="winNote"></p>
+    <div class="getit">
+      <p>1,072 more boards, 19 chapters and a rule that changes every one of them.</p>
+      <a href="../"><button class="primary">What is GroupIt?</button></a>
+    </div>
+  </div>
+
+  <div class="card" id="error" hidden>
+    <h2 id="errorTitle"></h2>
+    <p id="errorBody"></p>
+    <div class="getit"><a href="../"><button>About GroupIt</button></a></div>
+  </div>
+</main>
+
+<footer><div class="wrap">
+  <a href="../privacy-policy.html">Privacy</a> · <a href="../terms-of-service.html">Terms</a>
+</div></footer>
+
+<script type="module" src="../app/ui/play.js"></script>
+</body>
+</html>

@@ -2,45 +2,104 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>GroupIt — Zero++ Studios</title>
-<style>
-  :root { color-scheme: light dark; }
-  * { box-sizing: border-box; }
-  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-    margin: 0; min-height: 100vh; display: flex; align-items: center; justify-content: center;
-    padding: 40px 20px; color: #1a1a1a; background: #f5f6fb; }
-  .card { max-width: 460px; width: 100%; text-align: center; }
-  .icon { width: 132px; height: 132px; border-radius: 30px; box-shadow: 0 12px 34px #0000002e; }
-  h1 { font-size: 2.1rem; margin: 22px 0 6px; letter-spacing: -.02em; }
-  .tag { color: #6a6a74; font-size: 1.06rem; margin: 0 0 30px; }
-  .btns { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
-  a.btn { display: inline-block; padding: 12px 22px; border-radius: 11px; text-decoration: none;
-    font-weight: 600; font-size: .95rem; border: 1px solid #00000022; color: #1a1a1a; background: #fff; }
-  a.btn.primary { background: #2f6bff; color: #fff; border-color: transparent; }
-  /* The capital I is a bare stem in every UI font on this page, so "GroupIt" set in one colour
-     reads "Grouplt" — the one letter that carries the two words apart is the one the typeface
-     will not distinguish. The accent does the separating, exactly as the in-game wordmark and the
-     store banner do it. */
-  h1 .it { color: #2f6bff; }
-  footer { margin-top: 40px; color: #9a9aa4; font-size: .82rem; }
-  footer a { color: inherit; }
-  @media (prefers-color-scheme: dark) {
-    body { background: #0e0e12; color: #ececf0; }
-    a.btn { background: #1b1b22; color: #ececf0; border-color: #ffffff26; }
-    .tag { color: #a2a2ac; } footer { color: #7a7a84; } }
-</style>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>GroupIt — a two-tone deduction puzzle</title>
+<meta name="description" content="Every cell is Light or Shadow. The numbers tell you how big each patch is. Play a board here, no app and no account.">
+
+<meta property="og:type" content="website">
+<meta property="og:title" content="GroupIt">
+<meta property="og:description" content="A two-tone deduction puzzle. Every cell is Light or Shadow; the numbers tell you how big each patch is.">
+<meta property="og:image" content="card.png">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="theme-color" content="#F4F3EE" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#1B1D22" media="(prefers-color-scheme: dark)">
+<link rel="icon" href="icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&display=swap">
+<link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <main class="card">
-    <img class="icon" src="icon.png" alt="GroupIt icon" width="132" height="132">
-    <h1>Group<span class="it">It</span></h1>
-    <p class="tag">Every cell is light or dark. The numbers tell you which.</p>
-    <div class="btns">
-      <a class="btn primary" href="privacy-policy.html">Privacy Policy</a>
-      <a class="btn" href="terms-of-service.html">Terms of Service</a>
+
+<header class="top">
+  <a class="wordmark" href="./">GroupIt</a>
+  <div class="chips"><span class="chip">No app needed</span></div>
+</header>
+
+<main style="align-items:stretch;justify-content:flex-start">
+<div class="wrap">
+
+  <section class="hero">
+    <h1>Every cell is Light or Shadow.</h1>
+    <p class="lede">
+      The numbers tell you how big each patch is. Nothing is hidden, nothing is random, and every
+      board has exactly one answer — proved before it ships.
+    </p>
+  </section>
+
+  <!-- A real board, playable, above the fold. The page opens in a working state rather than
+       describing one: the rules below are far easier to read once you have already tapped a cell. -->
+  <div id="board" hidden>
+    <div class="stage"><canvas id="canvas" aria-label="A GroupIt board to try"></canvas></div>
+    <div class="status">
+      <span id="left"></span>
+      <span class="bad" id="warn" hidden></span>
     </div>
-    <footer>© 2026 Zero++ Studios · <a href="mailto:zeroplusplusstudios@gmail.com">zeroplusplusstudios@gmail.com</a></footer>
-  </main>
+    <div class="actions">
+      <button id="tone" class="tone" title="Which tone a tap paints"></button>
+      <button id="undo" disabled>Undo</button>
+      <button id="reset">Reset</button>
+    </div>
+  </div>
+  <p class="quiet" id="loading">Dealing a board…</p>
+  <div class="card" id="error" hidden><h2 id="errorTitle"></h2><p id="errorBody"></p></div>
+
+  <div class="card" id="win" hidden style="margin-inline:auto">
+    <div class="stars" id="winStars"></div>
+    <h2 id="winTitle"></h2>
+    <p id="winNote"></p>
+  </div>
+
+  <section class="rules">
+    <div class="rule">
+      <h3>The one rule</h3>
+      <p>A patch is a run of touching cells of the same tone. A number says how many cells are in
+         the patch it sits on — counting itself.</p>
+    </div>
+    <div class="rule">
+      <h3>Patches cannot touch</h3>
+      <p>Two patches of the same tone are never side by side. If they touched they would already
+         be one patch — which is what makes the numbers bite.</p>
+    </div>
+    <div class="rule">
+      <h3>Tap, or drag</h3>
+      <p>Tap to mark Shadow, tap again to clear. Long-press (or right-click) for Light. Drag to
+         lay a whole run at once.</p>
+    </div>
+    <div class="rule">
+      <h3>Three stars</h3>
+      <p>One for solving it. One for leaving no cell on the wrong tone. One for needing no undo
+         and no reset.</p>
+    </div>
+  </section>
+
+  <section style="padding:.5rem 0 1rem">
+    <h2 style="font-size:1.25rem">Someone sent you a board?</h2>
+    <p style="color:var(--muted);margin:.5rem 0 0">
+      Paste the whole link into your browser and it opens here — you do not need the app, an
+      account, or anything else. The board travels inside the link itself.
+    </p>
+  </section>
+
+</div>
+</main>
+
+<footer><div class="wrap">
+  GroupIt is made by Zero Plus Plus Studios ·
+  <a href="privacy-policy.html">Privacy</a> ·
+  <a href="terms-of-service.html">Terms</a>
+</div></footer>
+
+<script type="module" src="app/ui/landing.js"></script>
 </body>
 </html>

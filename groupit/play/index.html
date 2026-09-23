@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+  <meta charset="utf-8">
+  <title>GroupIt</title>
+
+  <!--
+    ─────────────────────────────────────────────────────────────────────────────────────────
+    GroupIt's WebGL template. Added 2026-09-23 with the browser build.
+
+    **It exists for one reason: this game is portrait and a browser window is not.** Unity's
+    Default template hands the canvas whatever box the page gives it and lets the engine stretch
+    to fill it, which on a desktop monitor means a 16:9 canvas showing a UI laid out against
+    1080x1920 — every screen in the game squeezed into a strip down the middle of a stretched
+    one, with the CanvasScaler's match mode splitting the difference and making it worse. There
+    is no player setting that fixes that; the canvas element's size is the page's business, so
+    the page is where it is decided.
+
+    What this does: sizes the canvas to the tallest 9:16 box that fits the window, centres it on
+    a dark surround, and goes edge-to-edge where the window is ALREADY portrait — which is every
+    phone, and is where a letterbox would be throwing away screen for nothing.
+
+    Everything is inline. There is no TemplateData folder, no stylesheet and no favicon file,
+    which is deliberate: a template that references a file it does not ship produces a 404 in
+    every player's console, and the whole of this page is smaller than the icon would have been.
+    ─────────────────────────────────────────────────────────────────────────────────────────
+  -->
+
+  <!--
+    height=device-height and viewport-fit=cover are the two that matter on a phone. Without the
+    first, iOS Safari reports a viewport that includes the space its toolbars are about to take,
+    and the bottom of the game sits under them; without the second the canvas stops at the safe
+    area and leaves white bars on a notched device. user-scalable=no is here because this game is
+    played by dragging across a grid, and a pinch that zooms the PAGE instead of being delivered
+    to the canvas reads as the game ignoring the player.
+  -->
+  <meta name="viewport"
+        content="width=device-width, height=device-height, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="theme-color" content="#0E1013">
+  <meta name="description" content="A binary-grid deduction puzzle. Every cell is Light or Shadow.">
+
+  <!--
+    An inline favicon. A browser asks for /favicon.ico whether or not a page mentions one, so the
+    choice is between shipping a file, declaring a data URI, or taking a 404 on every load. The
+    mark is the game's own: a dark ground, one lit square and one shadowed one.
+  -->
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%231B1D22'/%3E%3Crect x='6' y='6' width='9' height='9' rx='2' fill='%23F0F1EC'/%3E%3Crect x='17' y='17' width='9' height='9' rx='2' fill='%235F6573'/%3E%3C/svg%3E">
+
+  <style>
+    /*
+      The surround is darker than the game's own night backdrop (#1B1D22), not equal to it. Equal
+      would make the letterbox invisible and the game look like a window that had failed to fill
+      the screen; a step darker reads as a frame, and the board is the lit thing in the middle of
+      it. Both values are taken from Palette — Backdrop's night value, and one step below it.
+    */
+    :root {
+      --surround: #0E1013;
+      --canvas: #1B1D22;
+      --ink: #F0F1EC;
+      --muted: #8A919E;
+    }
+
+    html, body {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      background: var(--surround);
+      /* The page never scrolls. A drag that starts on the canvas and leaves it must not become a
+         page scroll halfway through a fence of cells. */
+      overflow: hidden;
+      overscroll-behavior: none;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      color: var(--muted);
+    }
+
+    #unity-container {
+      position: fixed;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    #unity-canvas {
+      display: block;
+      background: var(--canvas);
+      /* Every pointer event belongs to the game. Without this the browser claims drags for
+         scrolling and pinches for zooming, and both of those are gestures this game uses. */
+      touch-action: none;
+      -webkit-tap-highlight-color: transparent;
+      outline: none;
+    }
+
+    /* ── the loading state ────────────────────────────────────────────────────────────────
+       Drawn on the page rather than by the engine, because the engine is what is loading. It
+       is deliberately quiet: a name, a hairline bar and nothing else. A spinner or a percentage
+       counter on a two-second load is motion that says "this is slow". */
+    #loading {
+      position: fixed;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 22px;
+      background: var(--surround);
+      transition: opacity 260ms ease;
+    }
+
+    #loading.gone { opacity: 0; pointer-events: none; }
+
+    #loading .name {
+      font-size: 20px;
+      letter-spacing: 0.32em;
+      text-transform: uppercase;
+      color: var(--ink);
+    }
+
+    #loading .track {
+      width: 180px;
+      height: 3px;
+      border-radius: 2px;
+      background: #262930;
+      overflow: hidden;
+    }
+
+    #loading .fill {
+      width: 0%;
+      height: 100%;
+      background: var(--ink);
+      transition: width 120ms linear;
+    }
+
+    /* Unity calls showBanner for its own warnings and errors. Kept, because a build that cannot
+       start should say so on the page rather than only in a console the player will not open. */
+    #banner {
+      position: fixed;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      padding: 10px 14px;
+      font-size: 13px;
+      line-height: 1.4;
+      text-align: center;
+      background: #262930;
+      color: var(--ink);
+      display: none;
+    }
+  </style>
+</head>
+
+<body>
+  <div id="unity-container">
+    <canvas id="unity-canvas" width="540" height="960" tabindex="-1"></canvas>
+  </div>
+
+  <div id="loading">
+    <div class="name">GroupIt</div>
+    <div class="track"><div class="fill" id="loading-fill"></div></div>
+  </div>
+
+  <div id="banner"></div>
+
+  <script>
+    var container = document.querySelector("#unity-container");
+    var canvas = document.querySelector("#unity-canvas");
+    var loading = document.querySelector("#loading");
+    var loadingFill = document.querySelector("#loading-fill");
+    var banner = document.querySelector("#banner");
+
+    // ── the portrait fit ──────────────────────────────────────────────────────────────────
+    //
+    // The game is laid out against 1080x1920 and locked to portrait on both phones. In a browser
+    // there is no orientation to lock, so the SHAPE OF THE CANVAS is the lock: give it 9:16 and
+    // the game inside it is the game that ships.
+    //
+    // Two cases, and the second is not a special case bolted on — it is the majority of the
+    // traffic a free web build gets. A window that is already at least as tall as 9:16 is a
+    // phone in portrait, or a tall desktop window, and there the canvas takes the whole viewport:
+    // letterboxing a phone would throw away the only screen it has in order to enforce a ratio it
+    // already has. A wider window gets the tallest 9:16 box that fits, centred.
+    //
+    // Only the CSS size is set. Unity reads the canvas's client size and sizes its own drawing
+    // buffer from it, devicePixelRatio included, so setting the buffer here as well would fight
+    // the engine for it and produce a blurry canvas on every retina display.
+    var ASPECT = 9 / 16;
+
+    function fit() {
+      var w = container.clientWidth;
+      var h = container.clientHeight;
+      if (w <= 0 || h <= 0) return;
+
+      var width, height;
+      if (w / h <= ASPECT) {
+        // Already portrait enough: fill it. Rounding down on the height rather than the width,
+        // because a half-pixel of overflow on the tall axis is what produces a scrollbar on a
+        // desktop browser and a rubber-band bounce on a phone.
+        width = w;
+        height = h;
+      } else {
+        height = h;
+        width = Math.round(h * ASPECT);
+      }
+
+      canvas.style.width = width + "px";
+      canvas.style.height = height + "px";
+    }
+
+    fit();
+    window.addEventListener("resize", fit);
+    // orientationchange fires before the new viewport size is readable on iOS, so the resize
+    // listener above is what actually does the work there; this is the belt to its braces on
+    // Android browsers that do not fire resize on a rotation with the same dimensions.
+    window.addEventListener("orientationchange", function () { setTimeout(fit, 120); });
+
+    // ── Unity's own banner ────────────────────────────────────────────────────────────────
+    function unityShowBanner(msg, type) {
+      banner.style.display = "block";
+      banner.textContent = msg;
+      if (type === "error") banner.style.background = "#5A2A2E";
+      if (type === "warning") setTimeout(function () { banner.style.display = "none"; }, 5000);
+    }
+
+    var buildUrl = "Build";
+    var loaderUrl = buildUrl + "/WebGL.loader.js";
+    var config = {
+      arguments: [],
+      dataUrl: buildUrl + "/WebGL.data.unityweb",
+      frameworkUrl: buildUrl + "/WebGL.framework.js.unityweb",
+      codeUrl: buildUrl + "/WebGL.wasm.unityweb",
+      streamingAssetsUrl: "StreamingAssets",
+      companyName: "zeroplusplus",
+      productName: "GroupIt",
+      productVersion: "1.0",
+      showBanner: unityShowBanner,
+    };
+
+    // devicePixelRatio is left at the engine's default on every device, including phones.
+    // Unity's own template caps it at 1 on mobile as a performance measure; this game draws a
+    // few hundred flat uGUI quads and no lighting, so the frame cost of a real retina buffer is
+    // not the bottleneck, and the thing it would cost instead — crisp small numerals printed on
+    // cells — is the thing the player spends the whole game reading.
+
+    var script = document.createElement("script");
+    script.src = loaderUrl;
+    script.onload = function () {
+      createUnityInstance(canvas, config, function (progress) {
+        loadingFill.style.width = (100 * progress) + "%";
+      }).then(function (unityInstance) {
+        window.unityInstance = unityInstance;
+        loading.className = "gone";
+        // Removed rather than left transparent: an invisible full-screen div still takes the
+        // first press, and on this game the first press is a menu button.
+        setTimeout(function () { loading.parentNode.removeChild(loading); }, 320);
+        fit();
+      }).catch(function (message) {
+        unityShowBanner(message, "error");
+      });
+    };
+    script.onerror = function () {
+      unityShowBanner("Could not load the player (" + loaderUrl + ").", "error");
+    };
+    document.body.appendChild(script);
+  </script>
+</body>
+</html>

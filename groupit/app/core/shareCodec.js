@@ -18,7 +18,9 @@
 //
 // Not encrypted, deliberately — the same call the C# makes. Nothing in a board is secret: the
 // solution is stripped before encoding and the receiver re-derives everything it trusts.
-import { FormatError, Puzzle } from './puzzle.js';
+import { BrowserTooOldError, FormatError, NewerBoardError, Puzzle } from './puzzle.js';
+// Re-exported so a caller that already imports the codec need not reach into puzzle.ts for the error.
+export { BrowserTooOldError };
 /**
  * Everything before the version digit — the `#` included.
  *
@@ -44,18 +46,89 @@ export const LegacyHead = 'groupit://b/1';
  */
 const MaxPayloadChars = 4096;
 const MaxLineBytes = 64 * 1024;
-/** Cheap gate for "is this even ours" — scheme and version, nothing else. */
+/**
+ * The version characters this build reads. One today; a format change appends to it rather than
+ * replacing it, so a link of any version this build has ever understood keeps opening.
+ */
+export const KnownVersions = [Version];
+/**
+ * The scheme the first build emitted, up to but not including the version character
+ * (`groupit://b/1…`). It has no `#`: its payload follows the version directly.
+ */
+const LegacyScheme = 'groupit://b/';
+/**
+ * A version character this build does not know, followed by something the length and alphabet of
+ * a board payload. That shape is what a NEWER game's link looks like, and it is deliberately
+ * narrower than "anything": a bare `#top` anchor or a half-pasted URL is not a board from the
+ * future, and telling its sender to update would be as wrong as telling them it was cut short.
+ * Digits only, which is what the C# `ShareCodec.Classify` reads too; the version is one character,
+ * so 2 to 9 are the reserved ones, and the day they run out is the day this learns a letter.
+ * 16 is under half the shortest real payload (32 characters, the smallest shipped board, a 2x2 drill).
+ */
+const NewerShape = /^[2-9][A-Za-z0-9_-]{15,}$/;
+/**
+ * The text after the fragment marker (or after the legacy scheme), trimmed — the version
+ * character and the payload, or null when the text has neither. Host, path, query and case never
+ * matter: a chat app that adds `?fbclid=…`, an address bar that shows `index.html`, an uppercased
+ * host and a trailing newline are all the same board, and the board is in the fragment.
+ */
+function tailOf(text) {
+    if (text === null || text === undefined)
+        return null;
+    const t = text.trim();
+    if (t.length === 0)
+        return null;
+    if (t.toLowerCase().startsWith(LegacyScheme))
+        return t.slice(LegacyScheme.length).trim();
+    const hash = t.indexOf('#');
+    return hash < 0 ? null : t.slice(hash + 1).trim();
+}
+/**
+ * The canonical link for any text that carries one of this build's links, or null.
+ *
+ * THIS IS THE TYPESCRIPT TWIN OF `ShareCodec.Normalise` (C#), and `test/golden.ts` holds the two to
+ * the same corpus. It accepts any host, path, query string, `index.html`, letter case, surrounding
+ * whitespace and the legacy `groupit://` form, provided the fragment starts with a version this
+ * build knows. It does not look inside the payload: `fromLink` is the one place that happens.
+ */
+export function normaliseLink(text) {
+    const t = tailOf(text);
+    if (t === null || t.length < 2 || !KnownVersions.includes(t[0]))
+        return null;
+    return HeadBase + t;
+}
+export function classifyLink(text) {
+    if (normaliseLink(text) !== null)
+        return 'board';
+    const t = tailOf(text);
+    return t !== null && NewerShape.test(t) ? 'newer' : 'notOurs';
+}
+/** Cheap gate for "is this even ours" — a known version in the fragment, nothing else. Accepts
+ *  the retired `groupit://` form, and (since 2026-10-05) any host, query and `index.html`. */
 export function looksLikeLink(url) {
-    if (url === null || url === undefined || url.length === 0)
-        return false;
-    return url.startsWith(Head) || url.startsWith(LegacyHead);
+    return normaliseLink(url) !== null;
 }
 function payloadOf(url) {
-    if (url.startsWith(Head))
-        return url.slice(Head.length).trim();
-    if (url.startsWith(LegacyHead))
-        return url.slice(LegacyHead.length).trim();
-    throw new FormatError('not a GroupIt board link');
+    const canonical = normaliseLink(url);
+    if (canonical === null)
+        throw new FormatError('not a GroupIt board link');
+    return canonical.slice(Head.length).trim();
+}
+/**
+ * Whether this browser can open a board link at all. `DecompressionStream` shipped in Chrome 80
+ * but learned `'deflate-raw'` only in 103; Firefox 113 and Safari 16.4 have both. A browser that
+ * lacks the format throws from the constructor (a missing global is a ReferenceError), so the
+ * only honest test is to ask for one. Not cached: it costs one constructor call, and a test must
+ * be able to take the API away.
+ */
+export function canDecodeLinks() {
+    try {
+        new DecompressionStream('deflate-raw');
+        return true;
+    }
+    catch {
+        return false;
+    }
 }
 // base64url — the alphabet that survives every chat app unescaped: A–Z a–z 0–9 - _
 function armour(bytes) {
@@ -154,17 +227,28 @@ export async function link(puzzle) {
     return Head + armour(packed);
 }
 /**
- * The board in a link. Throws FormatError on anything that is not a well-formed version-1 board
- * link — corruption and cleverness both land there, which is what lets a caller have exactly one
- * thing to catch.
+ * The board in a link. Throws FormatError on anything that is not a well-formed board link of a
+ * version this build reads — corruption and cleverness both land there, which is what lets a
+ * caller have exactly one thing to catch. Two subclasses and one sibling say WHY, for the page that
+ * has to pick a card: `NewerBoardError` (a FormatError: a newer version, rule or clue — update),
+ * and `BrowserTooOldError` (not a FormatError: the link may be fine, this browser cannot inflate it).
  */
 export async function fromLink(url) {
-    if (!looksLikeLink(url))
+    if (normaliseLink(url) === null) {
+        // Ours by shape but a version this build does not read: say so, so the page can ask the
+        // visitor to update rather than blame the link.
+        if (classifyLink(url) === 'newer')
+            throw new NewerBoardError('board link is a newer version than this build reads');
         throw new FormatError('not a GroupIt board link');
+    }
     const payload = payloadOf(url);
     if (payload.length === 0 || payload.length > MaxPayloadChars)
         throw new FormatError('board link payload has an impossible length');
     const packed = dearmour(payload);
+    // After the cheap checks, so a link that is plainly damaged is still reported as damaged, and
+    // before the inflate, so a browser without the format is not blamed on the link.
+    if (!canDecodeLinks())
+        throw new BrowserTooOldError();
     let inflated;
     try {
         inflated = await through(new DecompressionStream('deflate-raw'), packed, MaxLineBytes);

@@ -11,8 +11,13 @@ import { BoardView } from './board.js';
 import { bindToneToggle } from './tone.js';
 import { SAMPLE } from './sample.js';
 import { explain } from './errors.js';
+import { modeName } from './names.js';
+import { ruleValue, solveBucket, start, track } from './analytics.js';
 const $ = (id) => document.getElementById(id);
 function main() {
+    // Web analytics (src/ui/analytics.ts). Dark unless a measurement id is set; even then nothing is sent
+    // until the visitor has said yes, and what is sent is fixed words and numbers.
+    start('landing');
     let puzzle;
     try {
         puzzle = Puzzle.fromLine(SAMPLE);
@@ -32,6 +37,7 @@ function main() {
     $('board').hidden = false;
     bindToneToggle($('tone'), view);
     view.resize();
+    const shownAt = performance.now();
     let won = false, withdrew = false;
     function refresh() {
         const status = play.status;
@@ -50,6 +56,10 @@ function main() {
             // wrong since round 24; the app's free play is endless, so the card points at the game
             // rather than at a number that goes stale on the next re-bake.
             const perfect = isPerfect(true, play.everWrong, withdrew);
+            track('web_board_solved', {
+                kind: 'sample', rows: puzzle.rows, cols: puzzle.cols, diff: puzzle.difficulty, rule: ruleValue(modeName(puzzle.mechanic)),
+                tb: solveBucket(performance.now() - shownAt), perfect: perfect ? 1 : 0,
+            });
             $('winTitle').textContent = perfect ? 'A perfect run' : 'Solved';
             $('winNote').textContent = perfect
                 ? 'No undo, no reset, no cell left on the wrong tone.'

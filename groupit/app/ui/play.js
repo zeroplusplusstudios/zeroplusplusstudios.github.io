@@ -3,39 +3,44 @@
 // This is the page the whole website exists for. Someone was sent a link by a friend; they may
 // have no idea what GroupIt is, they are probably on a phone, and they have not installed
 // anything. Everything here is in service of getting them to a playable board in one screen.
-import { fromLink, looksLikeLink, link as makeLink, Head, HeadBase } from '../core/shareCodec.js';
+import { fromLink, classifyLink, normaliseLink, link as makeLink, Head, HeadBase } from '../core/shareCodec.js';
 import { PlayBoard } from '../core/playBoard.js';
 import { isPerfect } from '../core/scoring.js';
 import { BoardView } from './board.js';
 import { bindToneToggle } from './tone.js';
 import { boardLine, modeName, sizeText } from './names.js';
-import { explain, isShareDismissed } from './errors.js';
+import { decodeWhy, explain, isShareDismissed, troubleOf } from './errors.js';
+import { ruleValue, solveBucket, start, track } from './analytics.js';
 const $ = (id) => document.getElementById(id);
 /**
- * The link for this page.
+ * The text this page was opened with, from which its board link is taken.
  *
  * A board arrives as `/groupit/b/#1<payload>` — the version digit and the payload in the
- * FRAGMENT, which is exactly the tail the canonical link carries after `b/#`, so this rebuilds
- * the link by putting `HeadBase` back in front of it rather than by parsing anything. Two reasons
- * the payload is a fragment rather than a path. Pages would 404 a path segment there, since there
- * is no file at that name and no rewrite rule to invent one. And a fragment is never sent to the
- * server, so the board somebody is playing is not in anybody's access log.
+ * FRAGMENT. Two reasons the payload is a fragment rather than a path. Pages would 404 a path
+ * segment there, since there is no file at that name and no rewrite rule to invent one. And a
+ * fragment is never sent to the server, so the board somebody is playing is not in anybody's
+ * access log.
  *
  * The version digit stays IN the fragment rather than being implied by the page, so a future
  * format bump is visible in the URL and an old page can say "this board needs a newer version"
- * instead of decoding it wrongly.
+ * instead of decoding it wrongly — which `classifyLink` now does (2026-10-05): a link of a
+ * version this page does not read used to get "No board in this link, check the whole link was
+ * copied", the wrong diagnosis for a link that was copied perfectly.
+ *
+ * The whole address is handed over, not just the hash, and `normaliseLink` finds the board in it:
+ * the same function the app uses (its C# twin is `ShareCodec.Normalise`), so the page and the app
+ * agree on what a link is.
  *
  * `?b=` is accepted too: a query string survives some clients' link rewriting that a fragment
- * does not.
+ * does not. It carries the version and payload exactly as the fragment would.
  *
  * Note what this does NOT do: strip a leading `1` from the payload. An earlier draft did, on the
  * muddled theory that the digit was duplicated — and base64url payloads legitimately begin with
  * `1`, so that quietly corrupted roughly one board in sixty-four into an unopenable link.
  */
-function linkFromLocation() {
-    const frag = location.hash.replace(/^#/, '');
-    if (frag.length > 0)
-        return HeadBase + frag;
+function textFromLocation() {
+    if (location.hash.replace(/^#/, '').length > 0)
+        return location.href;
     const q = new URLSearchParams(location.search).get('b');
     if (q !== null && q.length > 0)
         return HeadBase + q;
@@ -52,9 +57,27 @@ function fail(message, detail) {
     $('errorBody').textContent = detail;
     show('error');
 }
+function failWith(kind, e) {
+    // The engine's reason goes to the console, not onto the card (src/ui/errors.ts).
+    const why = explain(kind, e);
+    fail(why.title, why.body);
+}
 async function main() {
-    const url = linkFromLocation();
-    if (url === null || !looksLikeLink(url)) {
+    // Web analytics (src/ui/analytics.ts). Dark unless a measurement id is set; even then nothing is sent
+    // until the visitor has said yes, and what is sent is fixed words and numbers, never the board.
+    start('board');
+    const text = textFromLocation();
+    const url = text === null ? null : normaliseLink(text);
+    if (url === null) {
+        // Ours by shape but a format this page does not read: ask the visitor to update. Anything else
+        // that is not a board link gets the "check the whole link was copied" card.
+        if (text !== null && classifyLink(text) === 'newer') {
+            track('web_board_open', { res: 'bad_link', why: 'newer' });
+            failWith('newer', new Error('link version this page does not read'));
+            return;
+        }
+        const why = text === null ? 'no_board' : 'not_a_link';
+        track('web_board_open', { res: 'bad_link', why });
         fail('No board in this link', 'A GroupIt board link looks like ' + Head + '… — check the whole link was copied, ' +
             'including everything after the last slash.');
         return;
@@ -64,9 +87,9 @@ async function main() {
         puzzle = await fromLink(url);
     }
     catch (e) {
-        // The engine's reason goes to the console, not onto the card (src/ui/errors.ts).
-        const why = explain('link', e);
-        fail(why.title, why.body);
+        // A newer rule or clue, a browser too old to inflate, or a plainly broken link: three cards.
+        track('web_board_open', { res: 'bad_link', why: decodeWhy(e) });
+        failWith(troubleOf(e), e);
         return;
     }
     const play = new PlayBoard(puzzle);
@@ -76,6 +99,10 @@ async function main() {
     // The app's own name for the rule (src/ui/names.ts), or no chip: an engine identifier is not a
     // word any player has seen, and the plain game has no rule to name.
     const rule = modeName(puzzle.mechanic);
+    // The same name, as an event value: the app's word for the rule, or `none`. Size, difficulty and rule
+    // only (all three are in the link's header, none of them is the board); the board itself never leaves this page.
+    const ruleWord = ruleValue(rule);
+    track('web_board_open', { res: 'ok', rows: puzzle.rows, cols: puzzle.cols, diff: puzzle.difficulty, rule: ruleWord });
     const ruleChip = $('rule');
     ruleChip.hidden = rule === null;
     if (rule !== null)
@@ -83,6 +110,7 @@ async function main() {
     show('board');
     bindToneToggle($('tone'), view);
     view.resize();
+    const shownAt = performance.now();
     let won = false;
     function refresh() {
         const status = play.status;
@@ -101,6 +129,10 @@ async function main() {
             // game. It says what the board was, in the app's words, and keeps the celebration short.
             // `withdrew` counts a reset the same way the app does: undo and reset both take it.
             const perfect = isPerfect(true, play.everWrong, withdrew);
+            track('web_board_solved', {
+                kind: 'shared', rows: puzzle.rows, cols: puzzle.cols, diff: puzzle.difficulty, rule: ruleWord,
+                tb: solveBucket(performance.now() - shownAt), perfect: perfect ? 1 : 0,
+            });
             $('winTitle').textContent = perfect ? 'A perfect run' : 'Solved';
             $('winBoard').textContent = boardLine(puzzle.rows, puzzle.cols, puzzle.mechanic);
             $('winNote').hidden = !perfect;

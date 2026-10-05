@@ -45,6 +45,37 @@ export class FormatError extends Error {
         this.name = 'FormatError';
     }
 }
+/**
+ * A FormatError whose cause is NOT corruption: the line is well formed and names something this
+ * build does not have — a rule number past the last one it knows, or a clue letter it has never
+ * seen. Rules and clues are append-only, so the one way an honest sender can write either is by
+ * running a NEWER game, and the right thing to tell the receiver is "update", not "this link is
+ * broken". Still a FormatError, so every caller that has exactly one thing to catch keeps
+ * catching it; the page asks `instanceof NewerBoardError` only to choose which card to show.
+ *
+ * What does NOT earn this class: a negative rule number, a bad tone or direction letter, a token
+ * with the wrong number of fields. Those are what a damaged link looks like, and no version of the
+ * game writes them.
+ */
+export class NewerBoardError extends FormatError {
+    constructor(message, options) {
+        super(message, options);
+        this.name = 'NewerBoardError';
+    }
+}
+/**
+ * Thrown by `fromLink` when this browser has no `deflate-raw` decompressor, which is the whole of the
+ * decoding. It is NOT a FormatError: the link may be perfect, and telling its recipient it is "not a
+ * board" would send them off to ask for a new one. The page shows its own card for it
+ * (`troubleOf` in src/ui/errors.ts). Lives here beside FormatError so the error classes sit in one
+ * module that the landing page, which never decodes a link, can load without the codec.
+ */
+export class BrowserTooOldError extends Error {
+    constructor(message = 'this browser cannot decompress a board link') {
+        super(message);
+        this.name = 'BrowserTooOldError';
+    }
+}
 /** Integer parse that refuses everything C#'s int.Parse(InvariantCulture) refuses. */
 function parseInt32(s, what) {
     // Number() would accept '', '0x10', '1e3', ' 12 ' and Infinity, every one of which C#
@@ -56,6 +87,12 @@ function parseInt32(s, what) {
         throw new FormatError(`${what} out of range '${s}'`);
     return n;
 }
+/**
+ * Every clue letter `fromLine` reads (the structure tokens M, W, G, P and V are handled before it
+ * gets to a clue). Append-only, exactly like the C# `Puzzle.FromLine` switch it mirrors; the golden
+ * corpus (test/golden.ts) fails if a letter here has no board that carries it.
+ */
+export const ClueLetters = ['R', 'L', 'N', 'T', 'U', 'X', 'C', 'K', 'Y', 'E', 'Q', 'F', 'D'];
 /**
  * One board: its size, its printed clues, its rule twist (mechanic plus any structure the
  * twist needs), and (for verification and hints) the unique solution the generator proved.
@@ -346,7 +383,9 @@ export class Puzzle {
                     if (f.length !== 2)
                         throw new FormatError(`bad mechanic token '${parts[i]}'`);
                     const m = parseInt32(f[1], 'mechanic');
-                    if (m < 0 || m > MaxMechanic)
+                    if (m > MaxMechanic)
+                        throw new NewerBoardError(`unknown mechanic '${m}'`);
+                    if (m < 0)
                         throw new FormatError(`unknown mechanic '${m}'`);
                     mechanic = m;
                     break;
@@ -385,6 +424,12 @@ export class Puzzle {
                     break;
                 }
                 default: {
+                    // A single capital letter this build has no clue for is what a NEWER game writes the
+                    // day it adds a clue kind (letters are append-only, like rule numbers). Checked before
+                    // the field count, because a new kind need not have five fields. Anything else that is
+                    // not a known kind is a damaged token.
+                    if (/^[A-Z]$/.test(f[0]) && !ClueLetters.includes(f[0]))
+                        throw new NewerBoardError(`unknown clue kind '${f[0]}'`);
                     if (f.length !== 5)
                         throw new FormatError(`bad clue token '${parts[i]}'`);
                     const r = parseInt32(f[1], 'clue row');

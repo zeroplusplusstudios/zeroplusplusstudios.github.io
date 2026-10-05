@@ -1,0 +1,9 @@
+{
+  "schema": 1,
+  "android_ads": false,
+  "android_store": false,
+  "ios_ads": false,
+  "ios_store": true,
+  "video_gems": 3,
+  "video_daily_cap": 3
+}

@@ -67,10 +67,31 @@ const LegacyScheme = 'groupit://b/';
  */
 const NewerShape = /^[2-9][A-Za-z0-9_-]{15,}$/;
 /**
+ * The value of a `b` query parameter in some text (`?b=1<payload>`), or null. Every `?` is tried in
+ * turn, since a pasted message can carry one in its prose; from each, the parameters up to the first
+ * whitespace are split at `&` and the first one named exactly `b` wins. Nothing is percent-decoded:
+ * a payload is base64url, which never needs it. Twin of `TryQueryValue` in the C# `ShareCodec`.
+ */
+function queryValue(t) {
+    for (let q = t.indexOf('?'); q >= 0; q = t.indexOf('?', q + 1)) {
+        const params = t.slice(q + 1).split(/\s/)[0];
+        for (const param of params.split('&')) {
+            if (param.length >= 2 && param.startsWith('b='))
+                return param.slice(2);
+        }
+    }
+    return null;
+}
+/**
  * The text after the fragment marker (or after the legacy scheme), trimmed — the version
  * character and the payload, or null when the text has neither. Host, path, query and case never
  * matter: a chat app that adds `?fbclid=…`, an address bar that shows `index.html`, an uppercased
  * host and a trailing newline are all the same board, and the board is in the fragment.
+ *
+ * With no `#` anywhere (2026-10-05, the iPhone link round), the query form `?b=1<payload>` stands in
+ * for the fragment, and failing that a `#` that was percent-encoded to `%23` on the way. A fragment,
+ * when there is one, always wins. The C# twin (`ShareCodec.ReadShape`) reads the same three forms in
+ * the same order, and the golden corpus holds both to it.
  */
 function tailOf(text) {
     if (text === null || text === undefined)
@@ -81,7 +102,13 @@ function tailOf(text) {
     if (t.toLowerCase().startsWith(LegacyScheme))
         return t.slice(LegacyScheme.length).trim();
     const hash = t.indexOf('#');
-    return hash < 0 ? null : t.slice(hash + 1).trim();
+    if (hash >= 0)
+        return t.slice(hash + 1).trim();
+    const query = queryValue(t);
+    if (query !== null)
+        return query;
+    const encoded = t.indexOf('%23');
+    return encoded < 0 ? null : t.slice(encoded + 3).trim();
 }
 /**
  * The canonical link for any text that carries one of this build's links, or null.

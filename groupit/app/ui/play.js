@@ -5,10 +5,11 @@
 // anything. Everything here is in service of getting them to a playable board in one screen.
 import { fromLink, looksLikeLink, link as makeLink, Head, HeadBase } from '../core/shareCodec.js';
 import { PlayBoard } from '../core/playBoard.js';
-import { praise, rate, requirement } from '../core/scoring.js';
-import { Mechanic } from '../core/mechanic.js';
+import { isPerfect } from '../core/scoring.js';
 import { BoardView } from './board.js';
 import { bindToneToggle } from './tone.js';
+import { boardLine, modeName, sizeText } from './names.js';
+import { explain, isShareDismissed } from './errors.js';
 const $ = (id) => document.getElementById(id);
 /**
  * The link for this page.
@@ -45,17 +46,11 @@ function show(which) {
         $(id).hidden = id !== which;
 }
 function fail(message, detail) {
+    // No board, so no size: the chip would otherwise sit in the header as a lone dash.
+    $('size').hidden = true;
     $('errorTitle').textContent = message;
     $('errorBody').textContent = detail;
     show('error');
-}
-function ruleName(m) {
-    if (m === Mechanic.None)
-        return null;
-    // Mechanic names are PascalCase identifiers; the board's own chapter titles live in content
-    // the site does not ship, so a spaced-out enum name is the honest fallback rather than a
-    // guess at the prose the app would print.
-    return Mechanic[m].replace(/([a-z])([A-Z])/g, '$1 $2');
 }
 async function main() {
     const url = linkFromLocation();
@@ -69,15 +64,18 @@ async function main() {
         puzzle = await fromLink(url);
     }
     catch (e) {
-        fail('This link is not a board', 'It may have been cut short when it was sent, or it may be from a newer version of the ' +
-            'game than this page understands. (' + e.message + ')');
+        // The engine's reason goes to the console, not onto the card (src/ui/errors.ts).
+        const why = explain('link', e);
+        fail(why.title, why.body);
         return;
     }
     const play = new PlayBoard(puzzle);
     const canvas = $('canvas');
     const view = new BoardView(canvas, play, { onChange: refresh });
-    $('size').textContent = `${puzzle.rows} × ${puzzle.cols}`;
-    const rule = ruleName(puzzle.mechanic);
+    $('size').textContent = sizeText(puzzle.rows, puzzle.cols);
+    // The app's own name for the rule (src/ui/names.ts), or no chip: an engine identifier is not a
+    // word any player has seen, and the plain game has no rule to name.
+    const rule = modeName(puzzle.mechanic);
     const ruleChip = $('rule');
     ruleChip.hidden = rule === null;
     if (rule !== null)
@@ -98,14 +96,15 @@ async function main() {
         $('undo').disabled = !play.canUndo;
         if (status.solved && !won) {
             won = true;
-            // everWithdrew: the third star is the no-undo, no-reset one, and this page counts a reset
-            // the same way the app does.
-            const stars = rate(true, play.everWrong, withdrew);
-            $('winTitle').textContent = praise(stars);
-            $('winStars').textContent = '★'.repeat(stars) + '☆'.repeat(3 - stars);
-            $('winNote').textContent = stars === 3
-                ? 'Nothing to improve on that one.'
-                : requirement(stars + 1);
+            // 2026-10-05: no stars and no "Flawless" — the app has neither (it pays gems, and one more for
+            // "a perfect run"), and this card is the first thing a friend who was sent a board sees of the
+            // game. It says what the board was, in the app's words, and keeps the celebration short.
+            // `withdrew` counts a reset the same way the app does: undo and reset both take it.
+            const perfect = isPerfect(true, play.everWrong, withdrew);
+            $('winTitle').textContent = perfect ? 'A perfect run' : 'Solved';
+            $('winBoard').textContent = boardLine(puzzle.rows, puzzle.cols, puzzle.mechanic);
+            $('winNote').hidden = !perfect;
+            $('winNote').textContent = 'No undo, no reset, no cell left on the wrong tone.';
             $('win').hidden = false;
             // The board fills a phone screen, so the card lands below the fold and a player who just
             // finished sees nothing happen. Scroll it up — honouring reduced-motion, because a jump
@@ -133,7 +132,13 @@ async function main() {
                 await navigator.share({ text });
                 return;
             }
-            catch { /* dismissed; fall through */ }
+            catch (e) {
+                // Cancelling the share sheet is the player's answer, not a failure: do nothing. (It used to
+                // fall through to the copy prompt, so cancelling on iOS opened a second dialog, 2026-10-05.)
+                // Only a real failure — NotAllowedError, no share target — goes on to copy.
+                if (isShareDismissed(e))
+                    return;
+            }
         }
         try {
             await navigator.clipboard.writeText(text);
@@ -147,10 +152,22 @@ async function main() {
         }
     });
     addEventListener('resize', () => view.resize());
-    addEventListener('hashchange', () => location.reload());
+    addEventListener('hashchange', () => {
+        // A second link opened in this tab swaps the fragment and nothing else, so the page reloads to
+        // deal the new board — and a reload restores the scroll offset. A tab that had just been solved
+        // is scrolled down to the win card (scrollIntoView, above), so the next board used to open
+        // already scrolled past its own stage (2026-10-05). `manual` stops the browser restoring the old
+        // offset on the reload below, and the scrollTo is the belt for a browser that restores anyway.
+        // Both are plain DOM and work in iOS Safari (11+) and Chrome. The property sits on this history
+        // entry only, so Back to any earlier page keeps its own scroll.
+        history.scrollRestoration = 'manual';
+        scrollTo(0, 0);
+        location.reload();
+    });
     refresh();
 }
 main().catch((e) => {
-    fail('Something went wrong', String(e?.message ?? e));
+    const why = explain('page', e);
+    fail(why.title, why.body);
 });
 //# sourceMappingURL=play.js.map

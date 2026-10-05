@@ -9,7 +9,10 @@
 <meta property="og:type" content="website">
 <meta property="og:title" content="GroupIt">
 <meta property="og:description" content="A two-tone deduction puzzle. Every cell is Light or Shadow; the numbers tell you how big each patch is.">
-<meta property="og:image" content="card.png">
+<!-- Absolute on purpose (2026-10-05): a relative og:image is not resolved by every link-preview
+     crawler (WhatsApp and Facebook want a full URL), and the preview card is all a recipient sees
+     before deciding to tap. test/sharechain.ts fails on a relative one. -->
+<meta property="og:image" content="https://zeroplusplusstudios.github.io/groupit/card.png">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="theme-color" content="#F4F3EE" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#1B1D22" media="(prefers-color-scheme: dark)">
@@ -54,15 +57,28 @@
   <p class="quiet" id="loading">Dealing a board…</p>
   <div class="card" id="error" hidden><h2 id="errorTitle"></h2><p id="errorBody"></p></div>
 
+  <!-- The win card. No stars and no rating (the app has neither: it pays gems, and one more for a
+       perfect run), so it says what happened and points at the game. Written by src/ui/landing.ts. -->
   <div class="card" id="win" hidden style="margin-inline:auto">
-    <div class="stars" id="winStars"></div>
     <h2 id="winTitle"></h2>
     <p id="winNote"></p>
     <div class="getit">
-      <p>Chapter one is free and right here — 154 boards, no app.</p>
-      <a href="c1/"><button class="primary">Play First Light</button></a>
+      <p>Free play deals boards like this without end — every size, and a new rule whenever you
+         want one.</p>
     </div>
   </div>
+
+  <!-- The web version of the game, and the page's one secondary action. play/ is the Unity WebGL
+       build of the app itself, deployed beside this page by tools/deploy.sh (WEBGL_BUILD); it is
+       ~25 MB (24.3 MiB measured on the 2026-10-05 build: 12.2 MB wasm + 12.5 MB data + framework and
+       loader; this said 23 MB until then), which is why it is a choice here and not what loading this
+       page costs. It sits under
+       the board rather than above it so the board stays where a phone can see it without scrolling.
+       test/sharechain.ts fails if this link goes missing or stops pointing at play/. -->
+  <section class="playfull">
+    <a class="btn" href="./play/">Play the full game in your browser</a>
+    <p>The same game as the app, free. About 25 MB to download the first time.</p>
+  </section>
 
   <section class="rules">
     <div class="rule">
@@ -81,21 +97,22 @@
          lay a whole run at once.</p>
     </div>
     <div class="rule">
-      <h3>Three stars</h3>
-      <p>One for solving it. One for leaving no cell on the wrong tone. One for needing no undo
-         and no reset.</p>
+      <h3>Gems for every board</h3>
+      <p>In the full game each board pays gems — more for a bigger, harder one — and one extra for a
+         perfect run: no undo, no reset, no cell left on the wrong tone. Hints do not count against it.</p>
     </div>
   </section>
 
-  <!-- The whole first chapter, free, in the browser. One board answers "what is this"; only a
-       chapter answers "would I like the game", which is the question an install turns on. -->
+  <!-- "Chapter one is free, and it is right here" stood here and linked to c1/, the campaign's
+       first chapter in the browser. The campaign was retired on 2026-10-02 and the page with it;
+       the game is free play now, in the app and, from 2026-10-05, in the browser at play/. -->
   <section style="padding:.5rem 0 1rem">
-    <h2 style="font-size:1.25rem">Chapter one is free, and it is right here</h2>
-    <p style="color:var(--muted);margin:.5rem 0 1rem">
-      <strong>First Light</strong> — 154 boards in six parts, each with one idea behind it, the
-      same chapter the game opens with. No app, no account, and your place is kept.
+    <h2 style="font-size:1.25rem">Endless boards</h2>
+    <p style="color:var(--muted);margin:.5rem 0 0">
+      <strong>Free play</strong> deals a fresh board every time — small or large, easy or hard,
+      plain or with a rule that changes how the numbers count. There is a daily board too, the same
+      for everybody. It is all in the app, and in your browser.
     </p>
-    <a href="c1/"><button class="primary">Play First Light</button></a>
   </section>
 
   <section style="padding:.5rem 0 1rem">

@@ -261,6 +261,11 @@
     script.onerror = function () {
       unityShowBanner("Could not load the player (" + loaderUrl + ").", "error");
     };
+    // 2026-10-05: a link pasted into a tab that already holds the game changes only the URL fragment, so
+    // the page does not reload, and Application.deepLinkActivated never fires in a browser (measured on the
+    // 2026-09-23 build): the pasted board was silently ignored and the old one stayed. The shared-board page
+    // (b/) already reloads on hashchange for the same reason; a reload re-runs the cold-start link path.
+    window.addEventListener("hashchange", function () { location.reload(); });
     document.body.appendChild(script);
   </script>
 </body>

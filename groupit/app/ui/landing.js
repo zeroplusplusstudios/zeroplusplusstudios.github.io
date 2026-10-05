@@ -6,10 +6,11 @@
 // through the same PlayBoard and the same rules as everything else.
 import { PlayBoard } from '../core/playBoard.js';
 import { Puzzle } from '../core/puzzle.js';
-import { praise, rate, requirement } from '../core/scoring.js';
+import { isPerfect } from '../core/scoring.js';
 import { BoardView } from './board.js';
 import { bindToneToggle } from './tone.js';
 import { SAMPLE } from './sample.js';
+import { explain } from './errors.js';
 const $ = (id) => document.getElementById(id);
 function main() {
     let puzzle;
@@ -17,9 +18,11 @@ function main() {
         puzzle = Puzzle.fromLine(SAMPLE);
     }
     catch (e) {
+        // The reason goes to the console, not onto the page (src/ui/errors.ts).
+        const why = explain('sample', e);
         $('loading').hidden = true;
-        $('errorTitle').textContent = 'The sample board would not open';
-        $('errorBody').textContent = String(e.message);
+        $('errorTitle').textContent = why.title;
+        $('errorBody').textContent = why.body;
         $('error').hidden = false;
         return;
     }
@@ -41,12 +44,16 @@ function main() {
         $('undo').disabled = !play.canUndo;
         if (status.solved && !won) {
             won = true;
-            const stars = rate(true, play.everWrong, withdrew);
-            $('winTitle').textContent = praise(stars);
-            $('winStars').textContent = '★'.repeat(stars) + '☆'.repeat(3 - stars);
-            $('winNote').textContent = stars === 3
-                ? 'That is the whole game. There are 1,071 more.'
-                : requirement(stars + 1);
+            // 2026-10-05: no stars, no "Flawless". The app has neither any more — it pays gems, and one
+            // more for "a perfect run" — so the card says what happened in the app's own words. The old
+            // note here, "There are 1,071 more", was the retired campaign's board count and had been
+            // wrong since round 24; the app's free play is endless, so the card points at the game
+            // rather than at a number that goes stale on the next re-bake.
+            const perfect = isPerfect(true, play.everWrong, withdrew);
+            $('winTitle').textContent = perfect ? 'A perfect run' : 'Solved';
+            $('winNote').textContent = perfect
+                ? 'No undo, no reset, no cell left on the wrong tone.'
+                : 'A perfect run is a solve with no undo, no reset and no cell left on the wrong tone.';
             $('win').hidden = false;
             // The board fills a phone screen, so the card lands below the fold and a player who just
             // finished sees nothing happen. Scroll it up — honouring reduced-motion, because a jump

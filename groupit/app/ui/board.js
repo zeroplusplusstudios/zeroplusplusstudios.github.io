@@ -18,7 +18,7 @@ const Gap = 0.055; // between cells, in cells
 const Radius = 0.16; // cell corner radius, in cells
 export class BoardView {
     canvas;
-    /** Not readonly: the chapter page re-points one view at 154 boards. See `load`. */
+    /** Not readonly: a view can be re-pointed at another board. See `load`. */
     play;
     #ctx;
     #cell = 0;
@@ -49,8 +49,9 @@ export class BoardView {
     /**
      * Point this view at a different board.
      *
-     * The chapter page plays 154 boards through one canvas, and building a second BoardView over
-     * the same element would bind a second set of pointer listeners to it — every tap then landing
+     * A page that plays several boards through one canvas (the retired chapter page did — 154 of
+     * them — until 2026-10-02) must not build a second BoardView over the same element: that would
+     * bind a second set of pointer listeners to it — every tap then landing
      * twice, once per live view, with no way to take the first one's listeners off again. So the
      * view is built once and re-pointed.
      *
@@ -89,7 +90,20 @@ export class BoardView {
     // ─────────────────────────────────────────────────────────────────── layout
     resize() {
         const parent = this.canvas.parentElement;
-        const availW = (parent?.clientWidth ?? 320);
+        let availW = (parent?.clientWidth ?? 320);
+        // **The room the canvas actually has is the parent's CONTENT box** (2026-10-05). `clientWidth`
+        // includes the parent's padding, and `.stage` pads 0.9rem a side, so on a phone the board was
+        // laid out 29px wider than the box `canvas { max-width: 100% }` then squeezed it into: every
+        // board wider than four columns was drawn 7-9% narrower than it was laid out (cells taller than
+        // wide), and `#cellAt` divides by the layout cell while reading the squeezed rect, so a tap
+        // landed on the wrong cell wherever the error added up to half a cell — measured at 360px, a tap on
+        // the centre of a 7-column board's last column painted the column beside it. The fix is the
+        // layout reading the same box the CSS clamps to, so the two can never differ.
+        if (parent !== null) {
+            const style = getComputedStyle(parent);
+            availW -= (parseFloat(style.paddingLeft) || 0) + (parseFloat(style.paddingRight) || 0);
+        }
+        availW = Math.floor(availW);
         // Leave the page's own chrome room; the board takes what is left of the viewport height.
         const availH = Math.max(220, window.innerHeight - 260);
         const unitsW = this.play.cols + this.#padLeft;
@@ -169,8 +183,12 @@ export class BoardView {
                 if (this.play.put(idx, this.otherTone)) {
                     this.#changed();
                     // A hold that lands should be felt, not just seen: on a phone the finger is covering
-                    // the cell it just changed.
-                    navigator.vibrate?.(12);
+                    // the cell it just changed. Not before the page has had a tap, though: Chrome refuses the
+                    // call then and logs an error to the console for it, and a visitor's first gesture on a
+                    // fresh page can be this hold (found 2026-10-05, in Chrome with touch emulation). `!== false`
+                    // so a browser without the activation API keeps the buzz it always had.
+                    if (navigator.userActivation?.hasBeenActive !== false)
+                        navigator.vibrate?.(12);
                 }
             }, _a.HoldMs);
             // The tap itself is committed on pointerUP, not here, so a press that becomes a hold or a

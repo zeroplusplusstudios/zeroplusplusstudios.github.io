@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "android_ads": false,
-  "android_store": false,
+  "android_store": true,
   "ios_ads": false,
   "ios_store": true,
   "video_gems": 3,

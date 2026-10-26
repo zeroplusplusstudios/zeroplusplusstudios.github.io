@@ -68,17 +68,9 @@
     </div>
   </div>
 
-  <!-- The web version of the game, and the page's one secondary action. play/ is the Unity WebGL
-       build of the app itself, deployed beside this page by tools/deploy.sh (WEBGL_BUILD); it is
-       ~25 MB (24.3 MiB measured on the 2026-10-05 build: 12.2 MB wasm + 12.5 MB data + framework and
-       loader; this said 23 MB until then), which is why it is a choice here and not what loading this
-       page costs. It sits under
-       the board rather than above it so the board stays where a phone can see it without scrolling.
-       test/sharechain.ts fails if this link goes missing or stops pointing at play/. -->
-  <section class="playfull">
-    <a class="btn" href="./play/" data-cta="play_full">Play the full game in your browser</a>
-    <p>The same game as the app, free. About 25 MB to download the first time.</p>
-  </section>
+  <!-- "Play the full game in your browser" stood here and linked to play/, the Unity WebGL build. The
+       owner took the web version down on 2026-10-26 so the game launches on every store at once
+       (deploy.sh RETIRED); test/sharechain.ts now fails any link to play/. -->
 
   <section class="rules">
     <div class="rule">
@@ -105,7 +97,7 @@
 
   <!-- "Chapter one is free, and it is right here" stood here and linked to c1/, the campaign's
        first chapter in the browser. The campaign was retired on 2026-10-02 and the page with it;
-       the game is free play now, in the app and, from 2026-10-05, in the browser at play/. -->
+       the game is free play now, in the app (the browser build at play/ ran from 2026-10-05 to 2026-10-26). -->
   <section style="padding:.5rem 0 1rem">
     <h2 style="font-size:1.25rem">Endless boards</h2>
     <p style="color:var(--muted);margin:.5rem 0 0">

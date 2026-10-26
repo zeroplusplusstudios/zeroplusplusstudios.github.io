@@ -53,9 +53,8 @@
 
   <!-- The win card. No stars and no rating: the app has neither (it pays gems, and one more for a
        perfect run), so this says what the board was, in the app's words, and moves on. Written by
-       src/ui/play.ts. The quiet link goes to the game itself — a plain ../play/, never carrying
-       this page's #fragment, because the Unity build has no idea what a board link is and the
-       fragment would only be noise in the address bar. -->
+       src/ui/play.ts. A quiet "Play more in your browser" link to ../play/ stood under the buttons
+       until 2026-10-26, when the web version was taken down (deploy.sh RETIRED). -->
   <div class="card" id="win" hidden>
     <h2 id="winTitle"></h2>
     <p class="meta" id="winBoard"></p>
@@ -66,7 +65,6 @@
       <div class="actions" style="padding-bottom:0">
         <a href="../" data-cta="what_is"><button class="primary">What is GroupIt?</button></a>
       </div>
-      <p class="more"><a href="../play/" data-cta="play_more">Play more in your browser</a></p>
     </div>
   </div>
 

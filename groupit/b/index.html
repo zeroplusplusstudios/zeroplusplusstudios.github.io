@@ -57,8 +57,12 @@
       <span id="left"></span>
       <span class="bad" id="warn" hidden></span>
     </div>
+    <!-- A hint (2026-11-26): the app's own hint, free and unlimited here — one reason line, and the
+         gesture that makes the move. The cell it is about wears a ring on the board. -->
+    <p class="hintline" id="hintLine" hidden><span id="hintReason"></span> <strong id="hintGesture"></strong></p>
     <div class="actions" id="actions">
       <button id="tone" class="tone" title="Which tone a tap paints"></button>
+      <button id="hint">Hint</button>
       <button id="undo" disabled>Undo</button>
       <button id="reset">Reset</button>
       <button id="share" data-cta="share_board">Share this board</button>

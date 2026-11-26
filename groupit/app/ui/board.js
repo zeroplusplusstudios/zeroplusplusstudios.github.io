@@ -1,5 +1,5 @@
 var _a;
-import { isMargin, label as clueLabel } from '../core/clue.js';
+import { isMargin, label as clueLabel, namesItsPatchSize } from '../core/clue.js';
 import * as MarkRegions from '../core/markRegions.js';
 import { ClueKind, Dir, Mark } from '../core/types.js';
 import { Board, Chrome, Slate, brokenInk, groupInk, mix } from './palette.js';
@@ -31,6 +31,14 @@ function reducedMotion() {
         return false;
     }
 }
+function sameMarks(a, b) {
+    if (a.length !== b.length)
+        return false;
+    for (let i = 0; i < a.length; i++)
+        if (a[i] !== b[i])
+            return false;
+    return true;
+}
 function coarsePointer() {
     try {
         return matchMedia('(pointer: coarse)').matches;
@@ -40,6 +48,19 @@ function coarsePointer() {
     }
 }
 const easeOut = (t) => 1 - Math.pow(1 - t, 3);
+const GroupBandMs = 460, BoardBandMs = 820;
+const GroupBandHalf = 1.55, BoardBandHalf = 2.35, BandCoreFraction = 0.29;
+const GlintLift = 0.09;
+const SheenOnDark = [255, 244, 228, 0x1c / 255];
+const SheenOnLight = [51, 41, 28, 0x62 / 255];
+function bandProfile(d, core, half) {
+    if (d <= core)
+        return 1;
+    if (d >= half)
+        return 0;
+    const t = (d - core) / (half - core);
+    return 1 - t * t * (3 - 2 * t);
+}
 export class BoardView {
     canvas;
     play;
@@ -77,6 +98,14 @@ export class BoardView {
     #groupSize = new Int32Array(0);
     #groupSlot = new Int32Array(0);
     #labelCell = new Int32Array(0);
+    #closed = new Set();
+    #closedNow = new Set();
+    #seedLedger = true;
+    #cause = null;
+    #settled = new Uint8Array(0);
+    #wasSolved = false;
+    #sizeClueAt = new Int32Array(0);
+    #band = null;
     constructor(canvas, play, options = {}) {
         this.canvas = canvas;
         this.play = play;
@@ -127,6 +156,18 @@ export class BoardView {
         this.#groupSize = new Int32Array(n);
         this.#groupSlot = new Int32Array(n);
         this.#labelCell = new Int32Array(n);
+        this.#closed.clear();
+        this.#closedNow.clear();
+        this.#seedLedger = true;
+        this.#cause = null;
+        this.#settled = new Uint8Array(0);
+        this.#wasSolved = play.isSolved;
+        this.#band = null;
+        this.#sizeClueAt = new Int32Array(n).fill(-1);
+        play.puzzle.clues.forEach((c, k) => {
+            if (!isMargin(c) && namesItsPatchSize(c))
+                this.#sizeClueAt[c.row * play.cols + c.col] = k;
+        });
     }
     resize() {
         const parent = this.canvas.parentElement;
@@ -416,13 +457,14 @@ export class BoardView {
         c.addEventListener('pointercancel', release);
         c.addEventListener('contextmenu', (e) => e.preventDefault());
     }
-    #changed() {
+    #changed(cause = 'move') {
+        this.#cause = cause;
         this.paint();
         this.#onChange();
     }
     undo() { if (this.play.undo().ok)
-        this.#changed(); }
-    reset() { this.play.reset(); this.#changed(); }
+        this.#changed('undo'); }
+    reset() { this.play.reset(); this.#closed.clear(); this.#changed('incidental'); }
     #repaintWhenFontsArrive() {
         try {
             const fonts = document.fonts;
@@ -468,10 +510,22 @@ export class BoardView {
         ctx.fillStyle = Board.card;
         this.#roundRect(this.#cardX, this.#cardY, this.#w - this.#cardX, this.#h - this.#cardY, CardRadius * p);
         ctx.fill();
-        let groups = 0;
-        if (this.#counts) {
-            groups = MarkRegions.tag(marks, rows, cols, this.#groupId, this.#groupSize, this.#groupSlot, this.play.puzzle);
+        const groups = MarkRegions.tag(marks, rows, cols, this.#groupId, this.#groupSize, this.#groupSlot, this.play.puzzle);
+        if (this.#counts)
             MarkRegions.labelCells(this.#groupId, cells, groups, this.play.puzzle, this.#labelCell);
+        if (!sameMarks(marks, this.#settled)) {
+            this.#settle(groups, status, now, still);
+            this.#settled = Uint8Array.from(marks);
+        }
+        this.#cause = null;
+        const band = this.#band;
+        let bandAt = 0;
+        if (band !== null) {
+            const t = (now - band.at) / band.ms;
+            if (t >= 1)
+                this.#band = null;
+            else
+                bandAt = band.from + (band.to - band.from) * Math.max(0, t);
         }
         let animating = false;
         for (let i = 0; i < cells; i++) {
@@ -513,6 +567,22 @@ export class BoardView {
                 ctx.fillStyle = fill;
                 this.#roundRect(x, y, s, s, radius);
                 ctx.fill();
+            }
+            if (band !== null && this.#band !== null && band.mask[i] !== 0) {
+                const u = Math.floor(i / cols) + (i % cols);
+                const amount = bandProfile(Math.abs(u - bandAt), band.half * BandCoreFraction, band.half);
+                animating = true;
+                if (amount > 0.002) {
+                    const g = s * band.lift * amount / 2;
+                    ctx.fillStyle = fill;
+                    this.#roundRect(x - g, y - g, s + 2 * g, s + 2 * g, radius);
+                    ctx.fill();
+                    const lightGround = mark === Mark.Light || mark === Mark.Gold;
+                    const [r, gr, b, a] = lightGround ? SheenOnLight : SheenOnDark;
+                    ctx.fillStyle = `rgba(${r},${gr},${b},${(a * amount).toFixed(3)})`;
+                    this.#roundRect(x - g, y - g, s + 2 * g, s + 2 * g, radius);
+                    ctx.fill();
+                }
             }
         }
         ctx.textAlign = 'center';
@@ -596,6 +666,81 @@ export class BoardView {
         }
         if (animating)
             this.#schedule();
+    }
+    #settle(groups, status, now, still) {
+        const cells = this.play.cellCount;
+        const anchor = new Int32Array(groups).fill(-1);
+        const hit = new Uint8Array(groups), broken = new Uint8Array(groups);
+        for (let i = 0; i < cells; i++) {
+            const g = this.#groupId[i];
+            if (g === MarkRegions.None)
+                continue;
+            if (anchor[g] < 0)
+                anchor[g] = i;
+            const k = this.#sizeClueAt[i];
+            if (k < 0)
+                continue;
+            if (status.patchBroken[i] !== 0)
+                broken[g] = 1;
+            if (this.play.puzzle.clues[k].value === this.#groupSize[i])
+                hit[g] = 1;
+        }
+        const undo = this.#cause === 'undo';
+        const silent = this.#seedLedger || this.#cause === null || this.#cause === 'incidental';
+        this.#seedLedger = false;
+        const closingNow = new Set();
+        const announce = [];
+        for (let g = 0; g < groups; g++) {
+            if (hit[g] === 0 || broken[g] !== 0)
+                continue;
+            const sig = anchor[g] * (cells + 1) + this.#groupSize[anchor[g]];
+            closingNow.add(sig);
+            const first = !this.#closed.has(sig);
+            this.#closed.add(sig);
+            if (silent)
+                continue;
+            if (!undo && first)
+                announce.push(g);
+            else if (undo && !this.#closedNow.has(sig))
+                announce.push(g);
+        }
+        this.#closedNow = closingNow;
+        const solvedNow = status.solved && !this.#wasSolved;
+        this.#wasSolved = status.solved;
+        if (still || silent)
+            return;
+        if (solvedNow) {
+            const mask = new Uint8Array(cells);
+            for (let i = 0; i < cells; i++)
+                if (!this.play.puzzle.isVoid(i))
+                    mask[i] = 1;
+            this.#startBand(mask, BoardBandMs, BoardBandHalf, GlintLift * 0.55, now);
+        }
+        else if (announce.length > 0 && !status.solved) {
+            const mask = new Uint8Array(cells);
+            const wanted = new Set(announce);
+            for (let i = 0; i < cells; i++)
+                if (wanted.has(this.#groupId[i]))
+                    mask[i] = 1;
+            this.#startBand(mask, GroupBandMs, GroupBandHalf, GlintLift, now);
+        }
+    }
+    #startBand(mask, ms, half, lift, now) {
+        const cols = this.play.cols;
+        let lo = Infinity, hi = -Infinity;
+        for (let i = 0; i < mask.length; i++) {
+            if (mask[i] === 0)
+                continue;
+            const u = Math.floor(i / cols) + (i % cols);
+            if (u < lo)
+                lo = u;
+            if (u > hi)
+                hi = u;
+        }
+        if (lo === Infinity)
+            return;
+        this.#band = { mask, at: now, ms, half, lift, from: lo - half, to: hi + half };
+        this.#schedule();
     }
     #schedule() {
         if (this.#raf !== 0)

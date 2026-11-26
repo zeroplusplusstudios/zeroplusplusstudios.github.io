@@ -8,6 +8,10 @@ import { decodeWhy, explain, isShareDismissed, troubleOf } from './errors.js';
 import { ruleValue, solveBucket, start, track } from './analytics.js';
 import { hasRuleCard, lessonDone, ruleSeen, runWalkthrough, showHelp, showRuleCard } from './teach.js';
 import { fitBadges } from './stores.js';
+import { HintKind, LadderSolver, withLadderSolution } from '../core/deduction.js';
+import { cellIndex } from '../core/clue.js';
+import { Mark } from '../core/types.js';
+import { hintLines } from '../content/hintLines.js';
 const $ = (id) => document.getElementById(id);
 function textFromLocation() {
     if (location.hash.replace(/^#/, '').length > 0)
@@ -141,7 +145,32 @@ async function main() {
             share.textContent = shareLabel;
         }
     }
+    let ladder = null;
+    const hintLine = $('hintLine');
+    function clearHint() {
+        hintLine.hidden = true;
+        view.clearRings();
+    }
+    $('hint').addEventListener('click', () => {
+        ladder ??= new LadderSolver(withLadderSolution(puzzle));
+        const marks = new Uint8Array(play.cellCount);
+        play.copyMarksTo(marks);
+        const hint = ladder.advise(marks, play.lastMarked);
+        view.clearRings();
+        if (hint.cell >= 0)
+            view.ring(hint.cell, hint.kind === HintKind.Mistake ? 'slip' : 'target');
+        if (hint.clueIndex >= 0) {
+            const at = cellIndex(puzzle.clues[hint.clueIndex], puzzle.cols);
+            if (at >= 0 && at !== hint.cell)
+                view.ring(at, 'focus');
+        }
+        const lines = hintLines(hint, puzzle, marks, view.firstTone === Mark.Light, view.firstTone);
+        $('hintReason').textContent = lines.reason;
+        $('hintGesture').textContent = lines.gesture ?? '';
+        hintLine.hidden = false;
+    });
     function refresh() {
+        clearHint();
         const status = play.status;
         const left = puzzle.playableCells - status.committed;
         $('left').textContent = status.solved ? '' : left === 0 ? 'every cell filled' : `${left} to go`;
@@ -151,6 +180,7 @@ async function main() {
         if (broken > 0)
             warn.textContent = broken === 1 ? 'Something here cannot work' : `${broken} things here cannot work`;
         $('undo').disabled = !play.canUndo;
+        $('hint').hidden = status.solved;
         if (status.solved && !won) {
             won = true;
             const perfect = isPerfect(true, play.everWrong, withdrew);

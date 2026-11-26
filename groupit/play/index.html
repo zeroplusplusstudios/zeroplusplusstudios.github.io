@@ -17,12 +17,22 @@
     the page is where it is decided.
 
     What this does: sizes the canvas to the tallest 9:16 box that fits the window, centres it on
-    a dark surround, and goes edge-to-edge where the window is ALREADY portrait — which is every
+    a light surround, and goes edge-to-edge where the window is ALREADY portrait — which is every
     phone, and is where a letterbox would be throwing away screen for nothing.
 
-    Everything is inline. There is no TemplateData folder, no stylesheet and no favicon file,
-    which is deliberate: a template that references a file it does not ship produces a 404 in
-    every player's console, and the whole of this page is smaller than the icon would have been.
+    Everything the page needs to draw is inline. Since 2026-11-26 the folder also ships three
+    files that sit beside it in play/ (Unity copies a template folder's files into the build):
+    manifest.webmanifest, icon-192.png / icon-512.png for it, and apple-touch-icon.png, so "Add to
+    Home Screen" makes a full-screen portrait app with the game's own icon. A template that
+    references a file it does not ship produces a 404 in every player's console, so every file
+    this page names is in this folder; the loader's icon is inline, so it never waits on one.
+
+    2026-11-26, the phone pass (scout report webgl-mobile): the light loader and frame (the game is
+    light-only, so a dark loader jumped to cream on every load and tinted the iOS status bar dark);
+    no text selection, no iOS callout and no context menu on the game, because a long press is a
+    move here (hold for Light) — before this only the portal builds had those guards; the safe
+    area and the dynamic viewport; Safari's own App Store banner; and a rotate cue for a phone held
+    sideways.
     ─────────────────────────────────────────────────────────────────────────────────────────
   -->
 
@@ -36,8 +46,23 @@
   -->
   <meta name="viewport"
         content="width=device-width, height=device-height, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-  <meta name="theme-color" content="#0E1013">
+  <meta name="theme-color" content="#F6F3EA">
+  <meta name="color-scheme" content="light">
   <meta name="description" content="A binary-grid deduction puzzle. Every cell is Light or Shadow.">
+
+  <!--
+    Safari's own banner for the app (iOS and iPadOS): Apple draws it, with the App Store's install
+    button, above the page. fit() refits when it moves the viewport (the visualViewport listener).
+  -->
+  <meta name="apple-itunes-app" content="app-id=6801780198">
+
+  <!-- Add to Home Screen: a full-screen portrait app, the game's icon, the day backdrop behind it.
+       All three files ship in this template's folder, beside the page. -->
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="apple-touch-icon" href="apple-touch-icon.png">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
 
   <!--
     An inline favicon. A browser asks for /favicon.ico whether or not a page mentions one, so the
@@ -48,16 +73,20 @@
 
   <style>
     /*
-      The surround is darker than the game's own night backdrop (#1B1D22), not equal to it. Equal
-      would make the letterbox invisible and the game look like a window that had failed to fill
-      the screen; a step darker reads as a frame, and the board is the lit thing in the middle of
-      it. Both values are taken from Palette — Backdrop's night value, and one step below it.
+      The game is light-only (Palette.NightParked), so the page is the day frame: the canvas is the
+      day backdrop (Look.DayBackdrop, #F6F3EA), and the letterbox surround one step darker than it,
+      not equal — equal would make a desktop letterbox invisible and the game look like a window that
+      had failed to fill the screen; a step darker reads as a frame. Where the canvas fills the window
+      (every phone held upright) there is no letterbox, and the surround takes the canvas's colour
+      (body.fill), so the safe-area bands above and below the game are the game's own paper. The
+      ink and muted ink are Look.DayInk and Look.DayMuted. (It was the night frame, a near-black surround round the night backdrop, until 2026-11-26.)
     */
     :root {
-      --surround: #0E1013;
-      --canvas: #1B1D22;
-      --ink: #F0F1EC;
-      --muted: #8A919E;
+      --surround: #E9E4D6;
+      --canvas: #F6F3EA;
+      --ink: #2A1A5E;
+      --muted: #655E7C;
+      --track: rgba(42, 26, 94, 0.14);
     }
 
     html, body {
@@ -72,11 +101,36 @@
       overscroll-behavior: none;
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
       color: var(--muted);
+      /* A long press is a move in this game (hold for Light). Without these, iOS Safari answers a
+         hold by selecting the page and raising its Copy / Look Up callout over the board, and
+         Android raises its own. The portal builds inject the same rule from the jslib
+         (InstallGuards); this page is the site build's, so it says it here. */
+      -webkit-user-select: none;
+      -moz-user-select: none;
+      user-select: none;
+      -webkit-touch-callout: none;
+      -webkit-tap-highlight-color: transparent;
     }
 
+    body.fill { background: var(--canvas); }
+
+    /*
+      The game's box: the DYNAMIC viewport (100dvh: the height left once a phone's toolbars have
+      taken theirs, which changes as they slide; 100vh first for a browser that has no dvh), padded
+      by the safe area so no key sits under a notch or a home indicator (viewport-fit=cover hands
+      the page the whole screen, env() says which part of it is safe). fit() sizes the canvas to the
+      box INSIDE that padding.
+    */
     #unity-container {
       position: fixed;
-      inset: 0;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 100vh;
+      height: 100dvh;
+      box-sizing: border-box;
+      padding: env(safe-area-inset-top, 0px) env(safe-area-inset-right, 0px)
+               env(safe-area-inset-bottom, 0px) env(safe-area-inset-left, 0px);
       display: flex;
       align-items: center;
       justify-content: center;
@@ -89,7 +143,34 @@
          scrolling and pinches for zooming, and both of those are gestures this game uses. */
       touch-action: none;
       -webkit-tap-highlight-color: transparent;
+      -webkit-user-select: none;
+      user-select: none;
+      -webkit-touch-callout: none;
       outline: none;
+    }
+
+    /* ── the rotate cue ──────────────────────────────────────────────────────────────────────
+       A phone held sideways gets the 9:16 box in the middle of a wide screen, which is a small game.
+       A picture says "turn it" without a word: a phone outline and a quarter-turn arrow, in the
+       letterbox to the right of the game, never over it and never taking a finger. Only on a touch
+       device (pointer: coarse), so a desktop's wide window — the normal shape there — shows nothing. */
+    #rotate { display: none; }
+
+    @media (pointer: coarse) and (orientation: landscape) {
+      #rotate {
+        display: flex;
+        position: fixed;
+        top: 0;
+        right: 0;
+        bottom: 0;
+        width: calc((100vw - 56.25vh) / 2);
+        width: calc((100vw - 56.25dvh) / 2);
+        align-items: center;
+        justify-content: center;
+        pointer-events: none;
+        color: var(--muted);
+      }
+      #rotate svg { width: 56px; height: 56px; }
     }
 
     /* ── the loading state ────────────────────────────────────────────────────────────────
@@ -104,11 +185,20 @@
       align-items: center;
       justify-content: center;
       gap: 22px;
-      background: var(--surround);
+      /* The canvas's paper, not the surround: the game draws its first frame in this colour, so the
+         loader leaves without a flash. */
+      background: var(--canvas);
       transition: opacity 260ms ease;
     }
 
     #loading.gone { opacity: 0; pointer-events: none; }
+
+    #loading .icon {
+      width: 88px;
+      height: 88px;
+      border-radius: 22%;
+      box-shadow: 0 6px 18px rgba(42, 26, 94, 0.16);
+    }
 
     #loading .name {
       font-size: 20px;
@@ -121,8 +211,15 @@
       width: 180px;
       height: 3px;
       border-radius: 2px;
-      background: #262930;
+      background: var(--track);
       overflow: hidden;
+    }
+
+    /* The one line of text: what the wait is. Measured 2026-11-26 (Web/README.md): 26 MB on a first
+       visit, then from the browser's cache. */
+    #loading .size {
+      font-size: 13px;
+      color: var(--muted);
     }
 
     #loading .fill {
@@ -143,7 +240,7 @@
       font-size: 13px;
       line-height: 1.4;
       text-align: center;
-      background: #262930;
+      background: #E9E4D6;
       color: var(--ink);
       display: none;
     }
@@ -156,8 +253,19 @@
   </div>
 
   <div id="loading">
+    <img class="icon" alt="" src="data:image/png;base64,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">
     <div class="name">GroupIt</div>
     <div class="track"><div class="fill" id="loading-fill"></div></div>
+    <div class="size">26 MB the first time</div>
+  </div>
+
+  <div id="rotate" aria-hidden="true">
+    <svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round">
+      <rect x="15" y="6" width="18" height="30" rx="3.5"/>
+      <path d="M21 31.5h6"/>
+      <path d="M8 26a16 16 0 0 0 14 15.5"/>
+      <path d="M18.5 38.5l3.5 3-3 3.6"/>
+    </svg>
   </div>
 
   <div id="banner"></div>
@@ -219,13 +327,26 @@
     // the engine for it and produce a blurry canvas on every retina display.
     var ASPECT = 9 / 16;
 
+    // The box inside the container's safe-area padding: clientWidth and clientHeight include the
+    // padding, and the canvas must not.
+    function inner() {
+      var cs = window.getComputedStyle(container);
+      var w = container.clientWidth - (parseFloat(cs.paddingLeft) || 0) - (parseFloat(cs.paddingRight) || 0);
+      var h = container.clientHeight - (parseFloat(cs.paddingTop) || 0) - (parseFloat(cs.paddingBottom) || 0);
+      return { w: Math.floor(w), h: Math.floor(h) };
+    }
+
     function fit() {
-      var w = container.clientWidth;
-      var h = container.clientHeight;
+      var box = inner();
+      var w = box.w;
+      var h = box.h;
       if (w <= 0 || h <= 0) return;
 
       var width, height;
-      if (w / h <= ASPECT) {
+      var filled = w / h <= ASPECT;
+      // No letterbox: the surround takes the canvas's own colour (see body.fill in the style).
+      document.body.classList.toggle("fill", filled);
+      if (filled) {
         // Already portrait enough: fill it. Rounding down on the height rather than the width,
         // because a half-pixel of overflow on the tall axis is what produces a scrollbar on a
         // desktop browser and a rubber-band bounce on a phone.
@@ -246,12 +367,23 @@
     // listener above is what actually does the work there; this is the belt to its braces on
     // Android browsers that do not fire resize on a rotation with the same dimensions.
     window.addEventListener("orientationchange", function () { setTimeout(fit, 120); });
+    // A phone's toolbars sliding, Safari's app banner arriving or leaving, a pinch the page refused:
+    // each moves the VISUAL viewport, which a window resize does not always report. The size still
+    // comes from the 100dvh container rather than from visualViewport.height, so an on-screen
+    // keyboard (the name sheet) does not shrink the game under it.
+    if (window.visualViewport) window.visualViewport.addEventListener("resize", fit);
+
+    // A long press is a move (hold for Light), so the browser's context menu must never open over the
+    // game — on a phone it is the long-press menu, on a desktop the right click. Unity's loader blocks
+    // it on the canvas once the engine is up; this covers the page around it and the load before.
+    container.addEventListener("contextmenu", function (e) { e.preventDefault(); });
+    document.addEventListener("contextmenu", function (e) { e.preventDefault(); });
 
     // ── Unity's own banner ────────────────────────────────────────────────────────────────
     function unityShowBanner(msg, type) {
       banner.style.display = "block";
       banner.textContent = msg;
-      if (type === "error") banner.style.background = "#5A2A2E";
+      if (type === "error") banner.style.background = "#F4D6D3";
       if (type === "warning") setTimeout(function () { banner.style.display = "none"; }, 5000);
     }
 

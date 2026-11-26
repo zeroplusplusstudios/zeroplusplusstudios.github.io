@@ -11,31 +11,45 @@
      chat bubble and this is all the recipient sees before deciding. -->
 <meta property="og:type" content="website">
 <meta property="og:title" content="Play this GroupIt board">
-<meta property="og:description" content="A two-tone deduction puzzle. Every cell is Light or Shadow; the numbers tell you how big each patch is. No app needed.">
+<meta property="og:description" content="A two-tone deduction puzzle. Every cell is light or dark; the numbers tell you how big each group is. No app needed.">
 <!-- Absolute on purpose (2026-10-05): see index.html. For a shared board this is the card in the
      chat bubble, and a crawler that cannot resolve ../card.png shows a bare link instead. -->
 <meta property="og:image" content="https://zeroplusplusstudios.github.io/groupit/card.png">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="theme-color" content="#F4F3EE" media="(prefers-color-scheme: light)">
-<meta name="theme-color" content="#1B1D22" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#F6F3EA">
+<!-- Safari's own "open in the App Store" banner, drawn by iOS above the page (2026-11-25). Zero page
+     UI, and Safari only: an in-app browser ignores it, which is why the solved strip has a badge too. -->
+<meta name="apple-itunes-app" content="app-id=6801780198">
+<!-- icon.png is the HOST's file, the one both store listings link to: referenced here, never shipped
+     or moved by tools/deploy.sh (test/sharechain.ts fails if FILES ever lists it). -->
 <link rel="icon" href="../icon.png">
+<link rel="apple-touch-icon" href="../icon.png">
+<link rel="manifest" href="../manifest.webmanifest">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Nunito:wght@400;600;700;800&display=swap">
 <link rel="stylesheet" href="../style.css">
 </head>
 <body>
 
+<!-- The wordmark is the page's "What is GroupIt?" (data-cta what_is): the solved strip no longer
+     carries that button, and test/analytics.ts pins the four cta words, each used once. The ? reopens
+     the teaching (src/ui/teach.ts, wired in src/ui/play.ts); it stays hidden until a board is up. -->
 <header class="top">
-  <a class="wordmark" href="../">GroupIt <span>· shared board</span></a>
+  <a class="wordmark" href="../" data-cta="what_is">GroupIt <span>· shared board</span></a>
   <div class="chips">
     <span class="chip" id="size">–</span>
     <span class="chip" id="rule" hidden></span>
+    <button class="help" id="help" type="button" aria-label="How to play" hidden>?</button>
   </div>
 </header>
 
 <main>
   <p class="quiet" id="loading">Opening the board…</p>
+
+  <!-- The teaching's host: the walkthrough and the rule cards append themselves here while the
+       friend's board is hidden (not rebuilt), so whatever was marked is still there afterwards. -->
+  <div id="teach" class="teach" hidden></div>
 
   <div id="board" hidden>
     <div class="stage"><canvas id="canvas" aria-label="GroupIt board"></canvas></div>
@@ -43,7 +57,7 @@
       <span id="left"></span>
       <span class="bad" id="warn" hidden></span>
     </div>
-    <div class="actions">
+    <div class="actions" id="actions">
       <button id="tone" class="tone" title="Which tone a tap paints"></button>
       <button id="undo" disabled>Undo</button>
       <button id="reset">Reset</button>
@@ -51,29 +65,30 @@
     </div>
   </div>
 
-  <!-- The win card. No stars and no rating: the app has neither (it pays gems, and one more for a
-       perfect run), so this says what the board was, in the app's words, and moves on. Written by
-       src/ui/play.ts. The quiet link goes to the game itself — a plain ../play/, never carrying
-       this page's #fragment, because the Unity build has no idea what a board link is and the
-       fragment would only be noise in the address bar. -->
-  <div class="card" id="win" hidden>
-    <h2 id="winTitle"></h2>
-    <p class="meta" id="winBoard"></p>
-    <p id="winNote" hidden></p>
-    <div class="getit">
-      <p>The game deals boards like this without end — every size, every difficulty, and rules that
-         change how the numbers count.</p>
-      <div class="actions" style="padding-bottom:0">
-        <a href="../" data-cta="what_is"><button class="primary">What is GroupIt?</button></a>
+  <!-- The solved strip (2026-11-25), in place of the old win card. The app has no win card and no
+       stars, so this is one short line, the visitor's store badge, the browser game and Share — and it
+       is sticky to the bottom of the screen, so it shows without scrolling the board away. "A perfect
+       run" is gone from it: a shared link carries no answer, so this page cannot check a run against
+       one. BOTH badges are in the markup (no script, and every desktop, sees both); src/ui/stores.ts
+       hides the one that is not the visitor's. The Share key is the board's own #share, moved in on
+       solve and back on Reset, so share_board stays one button. The browser link is a plain ../play/,
+       never carrying this page's #fragment (test/sharechain.ts). -->
+  <section class="solved" id="solved" hidden aria-label="Solved">
+    <p class="solved-line"><strong>Solved</strong> <span class="meta" id="solvedBoard"></span></p>
+    <div class="solved-row">
+      <div class="badges" id="badges">
+        <a class="badge badge-apple" data-store="app_store" href="https://apps.apple.com/app/id6801780198"><img src="../app-store-badge.svg" alt="Download on the App Store" width="132" height="44"></a>
+        <a class="badge badge-google" data-store="google_play" href="https://play.google.com/store/apps/details?id=com.zeroplusplus.groupit&amp;referrer=utm_source%3Dweb%26utm_medium%3Dbadge%26utm_campaign%3Dshared_board"><img src="../google-play-badge.png" alt="Get it on Google Play" width="169" height="65"></a>
       </div>
-      <p class="more"><a href="../play/" data-cta="play_more">Play more in your browser</a></p>
+      <span id="shareSlot"></span>
     </div>
-  </div>
+    <p class="more"><a href="../play/" data-cta="play_more">Play more in your browser</a></p>
+  </section>
 
   <div class="card" id="error" hidden>
     <h2 id="errorTitle"></h2>
     <p id="errorBody"></p>
-    <div class="getit"><a href="../"><button>About GroupIt</button></a></div>
+    <div class="getit"><a class="btn" href="../">About GroupIt</a></div>
   </div>
 </main>
 

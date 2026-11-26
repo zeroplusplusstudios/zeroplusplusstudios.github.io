@@ -1,43 +1,47 @@
-// The board's colours, copied from the shipped Slate theme.
-//
-// These are the five values ColourThemes.cs calls "the tones already on the board" plus the
-// chrome Palette.cs derives around them. Copied rather than computed, exactly as that file
-// copies them from Palette: this is a TABLE, and a row that reaches somewhere else for its
-// values cannot be compared with the rows beside it.
-//
-// `ColourThemeTests.SlateIsTheShippedBoard` pins the five on the C# side. They must not drift
-// here either — a board on the web that is a different colour from the same board in the app is
-// a board the player does not recognise as theirs.
 export const Slate = {
-    /** CellLight — the lit tone. */
     lit: '#ECECE6',
-    /** GivenLit — a lit cell the clue handed the player, so slightly knocked back. */
     givenLit: '#D2D4C8',
-    /** CellShadow — the dark tone. */
     ink: '#15171C',
-    /** GivenInk — a dark cell the clue handed the player. */
     givenInk: '#242833',
-    /** Star / CellGold — the accent, and the third tone on a Gold Hour board. */
     accent: '#E8B45A',
-    /** CellUnknown — deliberately BETWEEN the two tones in brightness: it means "not yet decided". */
     unknown: '#4A4F59',
 };
+export const Board = {
+    card: '#262523',
+    textOnGold: '#1A1C21',
+    broken: '#C4453C',
+    brokenWash: 0.16,
+    holeRim: '#7A8190',
+    marginFace: '#FFFFFF',
+    marginBorder: '#15171C',
+    star: '#FFC23D',
+};
 export const Chrome = {
-    backdropDay: '#F4F3EE',
-    backdropNight: '#1B1D22',
+    backdropDay: '#F6F3EA',
     panelDay: '#FFFFFF',
-    panelNight: '#262930',
-    inkDay: '#1B1D22',
-    inkNight: '#F0F1EC',
-    mutedDay: '#5F6573',
-    mutedNight: '#8A919E',
-    /** The contradiction colour, one per ground. Small text, so both clear 4.5:1 on their own. */
+    inkDay: '#2A1A5E',
+    mutedDay: '#655E7C',
     brokenOnLight: '#A8082E',
     brokenOnDark: '#FFB9B2',
 };
-/** Ink that reads on a given cell fill. Mirrors Palette.TextOnLight / TextOnShadow. */
-export function inkOn(fill) {
-    return fill === Slate.lit || fill === Slate.givenLit || fill === Slate.accent
-        ? Slate.ink : Slate.lit;
+export const GroupOnLight = ['#0E55A8', '#794E03', '#822BAE', '#066259', '#4F5C32', '#156520'];
+export const GroupOnDark = ['#4D96E9', '#C78616', '#BF75E5', '#26A597', '#869C55', '#2CA93D'];
+export function groupInk(light, slot) {
+    const n = GroupOnLight.length;
+    const at = ((slot % n) + n) % n;
+    return light ? GroupOnLight[at] : GroupOnDark[at];
 }
-//# sourceMappingURL=palette.js.map
+export function brokenInk(onLight) {
+    return onLight ? Chrome.brokenOnLight : Chrome.brokenOnDark;
+}
+export function inkOn(fill) {
+    if (fill === Slate.accent)
+        return Board.textOnGold;
+    return fill === Slate.lit || fill === Slate.givenLit ? Slate.ink : Slate.lit;
+}
+export function mix(a, b, t) {
+    const pa = parseInt(a.slice(1), 16), pb = parseInt(b.slice(1), 16);
+    const ch = (p, s) => (p >> s) & 0xff;
+    const out = [16, 8, 0].map((s) => Math.round(ch(pa, s) + (ch(pb, s) - ch(pa, s)) * t));
+    return '#' + out.map((v) => v.toString(16).padStart(2, '0')).join('').toUpperCase();
+}

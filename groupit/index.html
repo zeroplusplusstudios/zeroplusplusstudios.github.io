@@ -4,22 +4,27 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>GroupIt — a two-tone deduction puzzle</title>
-<meta name="description" content="Every cell is Light or Shadow. The numbers tell you how big each patch is. Play a board here, no app and no account.">
+<meta name="description" content="Every cell is light or dark. The numbers tell you how big each group is. Play a board here, no app and no account.">
 
 <meta property="og:type" content="website">
 <meta property="og:title" content="GroupIt">
-<meta property="og:description" content="A two-tone deduction puzzle. Every cell is Light or Shadow; the numbers tell you how big each patch is.">
+<meta property="og:description" content="A two-tone deduction puzzle. Every cell is light or dark; the numbers tell you how big each group is.">
 <!-- Absolute on purpose (2026-10-05): a relative og:image is not resolved by every link-preview
      crawler (WhatsApp and Facebook want a full URL), and the preview card is all a recipient sees
      before deciding to tap. test/sharechain.ts fails on a relative one. -->
 <meta property="og:image" content="https://zeroplusplusstudios.github.io/groupit/card.png">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="theme-color" content="#F4F3EE" media="(prefers-color-scheme: light)">
-<meta name="theme-color" content="#1B1D22" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#F6F3EA">
+<!-- Safari's own App Store banner (2026-11-25): drawn by iOS, no page UI. -->
+<meta name="apple-itunes-app" content="app-id=6801780198">
+<!-- icon.png is the HOST's file, linked from both store listings: referenced, never shipped or moved
+     by tools/deploy.sh (test/sharechain.ts fails if FILES ever lists it). -->
 <link rel="icon" href="icon.png">
+<link rel="apple-touch-icon" href="icon.png">
+<link rel="manifest" href="manifest.webmanifest">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Nunito:wght@400;600;700;800&display=swap">
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -32,16 +37,15 @@
 <main style="align-items:stretch;justify-content:flex-start">
 <div class="wrap">
 
+  <!-- Minimal text (2026-11-25, the app's rule: few words, show don't tell). The board teaches by being
+       played; every line below it is one line. -->
   <section class="hero">
-    <h1>Every cell is Light or Shadow.</h1>
-    <p class="lede">
-      The numbers tell you how big each patch is. Nothing is hidden, nothing is random, and every
-      board has exactly one answer — proved before it ships.
-    </p>
+    <h1>Every cell is light or dark.</h1>
+    <p class="lede">A number is the size of its group.</p>
   </section>
 
   <!-- A real board, playable, above the fold. The page opens in a working state rather than
-       describing one: the rules below are far easier to read once you have already tapped a cell. -->
+       describing one. -->
   <div id="board" hidden>
     <div class="stage"><canvas id="canvas" aria-label="A GroupIt board to try"></canvas></div>
     <div class="status">
@@ -57,70 +61,49 @@
   <p class="quiet" id="loading">Dealing a board…</p>
   <div class="card" id="error" hidden><h2 id="errorTitle"></h2><p id="errorBody"></p></div>
 
-  <!-- The win card. No stars and no rating (the app has neither: it pays gems, and one more for a
-       perfect run), so it says what happened and points at the game. Written by src/ui/landing.ts. -->
-  <div class="card" id="win" hidden style="margin-inline:auto">
-    <h2 id="winTitle"></h2>
-    <p id="winNote"></p>
-    <div class="getit">
-      <p>Free play deals boards like this without end — every size, and a new rule whenever you
-         want one.</p>
-    </div>
+  <!-- The store badges, under the sample board (2026-11-25). Both always show; src/ui/stores.ts puts
+       the visitor's own store first. Official artwork, unmodified, shipped by tools/deploy.sh FILES. -->
+  <div class="badges" id="badges">
+    <a class="badge badge-apple" data-store="app_store" href="https://apps.apple.com/app/id6801780198"><img src="app-store-badge.svg" alt="Download on the App Store" width="132" height="44"></a>
+    <a class="badge badge-google" data-store="google_play" href="https://play.google.com/store/apps/details?id=com.zeroplusplus.groupit&amp;referrer=utm_source%3Dweb%26utm_medium%3Dbadge%26utm_campaign%3Dlanding"><img src="google-play-badge.png" alt="Get it on Google Play" width="169" height="65"></a>
   </div>
 
-  <!-- The web version of the game, and the page's one secondary action. play/ is the Unity WebGL
-       build of the app itself, deployed beside this page by tools/deploy.sh (WEBGL_BUILD); it is
-       ~25 MB (24.3 MiB measured on the 2026-10-05 build: 12.2 MB wasm + 12.5 MB data + framework and
-       loader; this said 23 MB until then), which is why it is a choice here and not what loading this
-       page costs. It sits under
-       the board rather than above it so the board stays where a phone can see it without scrolling.
-       test/sharechain.ts fails if this link goes missing or stops pointing at play/. -->
+  <!-- The web version of the game. play/ is the Unity WebGL build of the app itself, deployed beside
+       this page by tools/deploy.sh (WEBGL_BUILD); it is ~26 MB (26.4 MB measured, Web/README.md),
+       which is why it is a choice here and not what loading this page costs. test/sharechain.ts fails
+       if this link goes missing or stops pointing at play/. -->
   <section class="playfull">
     <a class="btn" href="./play/" data-cta="play_full">Play the full game in your browser</a>
-    <p>The same game as the app, free. About 25 MB to download the first time.</p>
+    <p>Free. About 26 MB.</p>
   </section>
 
   <section class="rules">
     <div class="rule">
       <h3>The one rule</h3>
-      <p>A patch is a run of touching cells of the same tone. A number says how many cells are in
-         the patch it sits on — counting itself.</p>
+      <p>A number counts its group, itself included.</p>
     </div>
     <div class="rule">
-      <h3>Patches cannot touch</h3>
-      <p>Two patches of the same tone are never side by side. If they touched they would already
-         be one patch — which is what makes the numbers bite.</p>
+      <h3>Groups cannot touch</h3>
+      <p>Same-tone groups never sit side by side.</p>
     </div>
     <div class="rule">
-      <h3>Tap, or drag</h3>
-      <p>Tap to mark Shadow, tap again to clear. Long-press (or right-click) for Light. Drag to
-         lay a whole run at once.</p>
+      <h3>Tap, hold, drag</h3>
+      <p>Tap for Shadow, hold for Light, drag for a run.</p>
     </div>
     <div class="rule">
       <h3>Gems for every board</h3>
-      <p>In the full game each board pays gems — more for a bigger, harder one — and one extra for a
-         perfect run: no undo, no reset, no cell left on the wrong tone. Hints do not count against it.</p>
+      <p>One more for a perfect run.</p>
     </div>
   </section>
 
-  <!-- "Chapter one is free, and it is right here" stood here and linked to c1/, the campaign's
-       first chapter in the browser. The campaign was retired on 2026-10-02 and the page with it;
-       the game is free play now, in the app and, from 2026-10-05, in the browser at play/. -->
-  <section style="padding:.5rem 0 1rem">
-    <h2 style="font-size:1.25rem">Endless boards</h2>
-    <p style="color:var(--muted);margin:.5rem 0 0">
-      <strong>Free play</strong> deals a fresh board every time — small or large, easy or hard,
-      plain or with a rule that changes how the numbers count. There is a daily board too, the same
-      for everybody. It is all in the app, and in your browser.
-    </p>
+  <section class="oneline">
+    <h2>Endless boards</h2>
+    <p>Every size, every level, and a daily board.</p>
   </section>
 
-  <section style="padding:.5rem 0 1rem">
-    <h2 style="font-size:1.25rem">Someone sent you a board?</h2>
-    <p style="color:var(--muted);margin:.5rem 0 0">
-      Paste the whole link into your browser and it opens here — you do not need the app, an
-      account, or anything else. The board travels inside the link itself.
-    </p>
+  <section class="oneline">
+    <h2>Someone sent you a board?</h2>
+    <p>Open the link. It plays right here.</p>
   </section>
 
 </div>

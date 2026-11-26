@@ -1,42 +1,47 @@
-/* GroupIt on the web. The palette is the app's own Slate theme — a board on this page must be
-   the same colour as the same board in the app, or the player does not recognise it as theirs.
-   Values are pinned in src/ui/palette.ts and by ColourThemeTests.SlateIsTheShippedBoard. */
+/* GroupIt on the web. The palette is the app's own: Slate's board on the default look's page
+   (Look.cs, Palette.cs, ColourThemes.cs) — a board on this page must be the same colour as the same
+   board in the app, or the player does not recognise it as theirs. The board's colours are pinned
+   in src/ui/palette.ts and by ColourThemeTests.SlateIsTheShippedBoard.
+
+   LIGHT ONLY (2026-11-25). The app parked its night theme in round 32 (owner: "keep the light theme
+   as always, remove dark theme for now"), and so does this page: the dark blocks that stood here
+   also painted the Tally / Turns gutter digits near-black on a near-black panel, because the canvas
+   never learned which scheme the page was in. `color-scheme: light` keeps the browser's own form
+   controls and scrollbars light too. */
+
+/* The app's UI face (Look.BodyFont, Fredoka) for the page's words, named first in --face below; the
+   board's digits stay Nunito, as the app's do (Look.DigitFont). NOT loaded from here: an @import in
+   this file chains a second render- and script-blocking request behind it (measured: a cold load sat
+   on "Opening the board…" while it resolved), so Fredoka arrives when the pages' own Google Fonts
+   <link> asks for it — family=Fredoka:wght@500;600;700 beside Nunito. Until then the stack falls
+   back to Nunito, which is what the page has always been set in. */
 
 :root {
-  --backdrop: #F4F3EE;
+  color-scheme: light;
+  /* Look.DayBackdrop / DayPanel / DayInk / DayMuted. */
+  --backdrop: #F6F3EA;
   --panel: #FFFFFF;
-  --ink: #1B1D22;
-  --muted: #5F6573;
-  --line: #E1E0D8;
-  --accent: #E8B45A;
+  --ink: #2A1A5E;
+  --muted: #655E7C;
+  /* Look.DayPanelLip, the sand a white card's rim and lip are cut from; --line is a step lighter. */
+  --line: #E6DCC8;
+  --lip: #D4C4A4;
+  /* The keys: Look.DayButton, standing on the sand lip they sink into when pressed. */
+  --key: #EADFCB;
+  /* The primary: Look.Accent and OnAccent, with the candy lip under it (Look.LipGamma). */
+  --accent: #FFC23D;
+  --on-accent: #3A2300;
+  --accent-lip: #D18B18;
+  /* The accent as TYPE on the cream page (GameScreen.TitleInk by day, 4.71:1): raw #FFC23D is 1.5:1. */
+  --accent-ink: #84683A;
   --broken: #A8082E;
-  --shadow: 0 1px 2px rgba(27, 29, 34, .05), 0 6px 20px rgba(27, 29, 34, .06);
+  --shadow: 0 1px 2px rgba(42, 26, 94, .05), 0 6px 20px rgba(42, 26, 94, .06);
   /* The page's column: .wrap is --measure wide with --gutter either side, so its content is
      --measure less two gutters. #board is capped at exactly that (below). */
   --measure: 46rem;
   --gutter: 1.25rem;
-}
-
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) {
-    --backdrop: #1B1D22;
-    --panel: #262930;
-    --ink: #F0F1EC;
-    --muted: #8A919E;
-    --line: #333740;
-    --broken: #FFB9B2;
-    --shadow: 0 1px 2px rgba(0, 0, 0, .3), 0 6px 20px rgba(0, 0, 0, .35);
-  }
-}
-
-:root[data-theme="dark"] {
-  --backdrop: #1B1D22;
-  --panel: #262930;
-  --ink: #F0F1EC;
-  --muted: #8A919E;
-  --line: #333740;
-  --broken: #FFB9B2;
-  --shadow: 0 1px 2px rgba(0, 0, 0, .3), 0 6px 20px rgba(0, 0, 0, .35);
+  /* The face every word on the page is set in. */
+  --face: "Fredoka", "Nunito", ui-rounded, -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
 }
 
 * { box-sizing: border-box; }
@@ -51,8 +56,15 @@ html, body {
   margin: 0;
   background: var(--backdrop);
   color: var(--ink);
-  font: 400 16px/1.55 "Nunito", ui-rounded, -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+  font: 400 16px/1.55 var(--face);
   -webkit-text-size-adjust: 100%;
+}
+
+/* The notch and the home indicator: the page is laid out under `viewport-fit=cover`, so it keeps
+   clear of both itself. Sides on the body, so every row of the page inherits them. */
+body {
+  padding-left: env(safe-area-inset-left, 0px);
+  padding-right: env(safe-area-inset-right, 0px);
 }
 
 body { min-height: 100dvh; display: flex; flex-direction: column; }
@@ -72,7 +84,12 @@ a { color: inherit; }
 .wordmark { font-weight: 800; letter-spacing: -.02em; font-size: 1.05rem; text-decoration: none; }
 .wordmark span { color: var(--muted); font-weight: 600; }
 
-.chips { display: flex; gap: .4rem; flex-wrap: wrap; }
+.chips { display: flex; gap: .4rem; flex-wrap: nowrap; justify-content: flex-end; }
+.wordmark { white-space: nowrap; }
+/* A phone header holds the wordmark, the size and rule chips and the ? on ONE row (review 2026-11-26): at
+   360-414 px "· shared board" pushed the chips onto a second row and the wordmark onto two lines, a
+   header three times its height. The tag goes on a narrow screen; the chips say what the board is. */
+@media (max-width: 27.5rem) { .wordmark span { display: none; } .top { padding-left: 1rem; padding-right: 1rem; } }
 .chip {
   font-size: .72rem; font-weight: 700; letter-spacing: .04em; text-transform: uppercase;
   padding: .26rem .55rem; border-radius: 999px; background: var(--panel);
@@ -92,10 +109,16 @@ main { flex: 1; display: flex; flex-direction: column; align-items: center; just
   max-width: calc(var(--measure) - 2 * var(--gutter));
 }
 
+/* The stage is no longer a white card (2026-11-25). The app's board IS a card — the dark charcoal
+   the grid stands on, drawn by BoardView on the canvas — and its margin numbers stand outside it on
+   the page (round 32). A white panel round that card was a second frame the app does not have, and
+   put the gutter icons on white instead of on the cream page they were measured against. The stage
+   keeps a side gutter, so on b/ (no .wrap) the card never touches the screen's edge. */
 .stage {
   display: flex; justify-content: center; width: 100%;
-  padding: .9rem; border-radius: 1.1rem; background: var(--panel); box-shadow: var(--shadow);
+  padding: .25rem 1rem; background: none;
 }
+.wrap .stage { padding-left: 0; padding-right: 0; }
 canvas { display: block; max-width: 100%; }
 
 /* A long-press is one of the board's gestures (it paints the other tone, src/ui/board.ts), and iOS
@@ -118,37 +141,48 @@ canvas { display: block; max-width: 100%; }
 .status .bad { color: var(--broken); font-weight: 700; }
 
 .actions { display: flex; gap: .5rem; flex-wrap: wrap; justify-content: center; padding-bottom: 1.5rem; }
+/* Keys stand on a lip and sink into it when pressed (Look.cs, look/playground: "every pressable
+   thing standing on a solid lip that it sinks into when touched"). The sink is on :active, so it
+   shows the instant a finger lands rather than after the click. `touch-action: manipulation` stops a
+   quick second tap on Undo being read as a double-tap zoom. */
 button {
-  font: inherit; font-weight: 700; font-size: .92rem;
-  padding: .6rem 1.05rem; border-radius: .7rem; cursor: pointer;
-  background: var(--panel); color: var(--ink); border: 1px solid var(--line);
+  font: inherit; font-weight: 600; font-size: .95rem;
+  padding: .6rem 1.1rem; min-height: 2.75rem; border-radius: .9rem; cursor: pointer;
+  background: var(--key); color: var(--ink); border: 0;
+  box-shadow: 0 4px 0 var(--lip);
+  touch-action: manipulation; -webkit-tap-highlight-color: transparent;
+  transition: transform 60ms ease-out, box-shadow 60ms ease-out;
 }
-button:hover:not(:disabled) { border-color: var(--muted); }
+button:hover:not(:disabled) { filter: brightness(1.02); }
+button:active:not(:disabled) { transform: translateY(3px); box-shadow: 0 1px 0 var(--lip); }
 button:disabled { opacity: .45; cursor: default; }
-button.tone { padding: .45rem .5rem; display: inline-flex; align-items: center; }
+a, .btn { touch-action: manipulation; }
+button.tone { padding: .45rem .5rem; display: inline-flex; align-items: center; gap: .4rem; }
+button.tone .tap { font-size: .82rem; font-weight: 700; padding-left: .2rem; }
 .swatch {
-  display: inline-block; min-width: 4.4rem; padding: .22rem .5rem; border-radius: .45rem;
+  display: inline-block; min-width: 3.6rem; padding: .22rem .5rem; border-radius: .45rem;
   font-size: .82rem; font-weight: 700; letter-spacing: .01em;
 }
 
-button.primary { background: var(--accent); border-color: var(--accent); color: #1A1C21; }
+button.primary { background: var(--accent); color: var(--on-accent); box-shadow: 0 5px 0 var(--accent-lip); }
+button.primary:active:not(:disabled) { box-shadow: 0 2px 0 var(--accent-lip); }
 
 /* A link that is a secondary action: the button's size and shape as an <a>, outlined in the accent
    so it reads as an offer beside the filled primary rather than as another Undo. */
 .btn {
-  display: inline-block; font: inherit; font-weight: 700; font-size: .92rem; text-decoration: none;
-  padding: .6rem 1.05rem; border-radius: .7rem; cursor: pointer;
+  display: inline-block; font: inherit; font-weight: 600; font-size: .95rem; text-decoration: none;
+  padding: .6rem 1.05rem; border-radius: .9rem; cursor: pointer;
   background: var(--panel); color: var(--ink); border: 2px solid var(--accent);
 }
 .btn:hover { background: var(--backdrop); }
-.btn:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
-button:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+.btn:focus-visible { outline: 3px solid var(--accent-lip); outline-offset: 2px; }
+button:focus-visible { outline: 3px solid var(--accent-lip); outline-offset: 2px; }
 
 /* ── win, loading, error ────────────────────────────────────────────────── */
 
 .card {
   text-align: center; background: var(--panel); border: 1px solid var(--line);
-  border-radius: 1.1rem; padding: 1.4rem 1.25rem; box-shadow: var(--shadow);
+  border-radius: 1.1rem; padding: 1.4rem 1.25rem; box-shadow: 0 5px 0 var(--lip);
   margin: 0 1.25rem 1.25rem; max-width: 26rem;
 }
 .card h2 { font-size: 1.5rem; }
@@ -165,9 +199,60 @@ button:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
 
 .quiet { color: var(--muted); font-size: .9rem; text-align: center; padding: 2rem 1.25rem; }
 
+/* ── teaching, help, the solved strip and the store badges (2026-11-25) ───── */
+
+/* The teaching's host on b/: src/ui/teach.ts appends the walkthrough or a rule card here (and styles
+   them itself) while the friend's board is hidden. */
+.teach { width: 100%; }
+
+/* The ? in b/'s header: a small round key, the same sand key with its lip. */
+button.help {
+  width: 2.4rem; height: 2.4rem; min-height: 2.4rem; padding: 0; border-radius: 50%; flex: none;
+  font-weight: 800; font-size: 1.05rem; line-height: 1; box-shadow: 0 3px 0 var(--lip);
+}
+button.help:active:not(:disabled) { box-shadow: 0 1px 0 var(--lip); }
+.chips { align-items: center; }
+
+/* The solved strip: one line, the visitor's badge and Share, and the browser game under them. Sticky to
+   the bottom of the screen, so solving never scrolls the board away to show it (the old win card sat
+   below the fold and scrollIntoView'd itself up); scrolled to, it sits in the page under the board. */
+/* A whole card, not a sheet with a cut-off bottom (review 2026-11-26): on a short board the page does not
+   scroll, so the strip sits in the flow under the board, and a sheet's flat open bottom edge then floated
+   mid-screen above the page background. Stuck, it rides a gap above the home indicator. */
+.solved {
+  position: sticky; bottom: max(.5rem, env(safe-area-inset-bottom, 0px)); z-index: 5;
+  width: calc(100% - 1rem); max-width: 30rem; margin: .25rem auto .5rem;
+  display: flex; flex-direction: column; align-items: center; gap: .55rem; text-align: center;
+  background: var(--panel); border: 1px solid var(--line);
+  border-radius: 1.1rem; box-shadow: 0 6px 20px rgba(42, 26, 94, .12);
+  padding: .75rem 1rem .8rem;
+}
+.solved-line { margin: 0; font-size: 1.15rem; line-height: 1.3; }
+.solved-line strong { font-weight: 800; }
+.solved-line .meta { margin-left: .4rem; color: var(--muted); font-weight: 700; font-size: .88rem; font-variant-numeric: tabular-nums; }
+.solved-row { display: flex; align-items: center; justify-content: center; gap: .75rem; flex-wrap: wrap; }
+.solved .more { margin: 0; font-size: .88rem; }
+.solved .more a { color: var(--muted); text-underline-offset: .2em; }
+.solved .more a:hover { color: var(--ink); }
+
+/* The official badges, unmodified. Apple's badge is drawn at --badge-h (40px is its minimum). Google's
+   PNG is 646 x 250 with the badge itself 168 tall inside its own clear space, so its image is drawn at
+   250/168 of that height — the two badges then stand the same height — and a negative margin of the
+   clear space (41 of 168) lines its visible edge up with Apple's. Nothing is cropped. */
+.badges { --badge-h: 44px; display: flex; align-items: center; justify-content: center; gap: .75rem; flex-wrap: wrap; }
+.badge { display: inline-flex; line-height: 0; border-radius: 8px; }
+.badge img { display: block; width: auto; max-width: none; }
+.badge-apple img { height: var(--badge-h); }
+.badge-google img { height: calc(var(--badge-h) * 250 / 168); margin: calc(var(--badge-h) * -41 / 168); }
+.badge:focus-visible { outline: 3px solid var(--accent-lip); outline-offset: 3px; }
+.wrap > .badges { padding: .25rem 0 1.1rem; }
+
+/* The landing's "Solved", said in the status line where the count was. */
+.status .done { color: var(--ink); font-weight: 800; }
+
 /* ── the landing page ───────────────────────────────────────────────────── */
 
-.hero { padding: 3rem 0 1.5rem; }
+.hero { padding: 1.75rem 0 1rem; }
 .hero h1 { font-size: clamp(2rem, 7vw, 3rem); font-weight: 800; }
 .hero .lede { color: var(--muted); font-size: 1.05rem; max-width: 34rem; margin: .8rem 0 0; }
 
@@ -179,6 +264,11 @@ button:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
 .rule h3 { font-size: .78rem; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
 .rule p { margin: .45rem 0 0; font-size: .95rem; }
 
+/* The landing's two closing lines: a heading and one line each. */
+.oneline { padding: .5rem 0 1rem; }
+.oneline h2 { font-size: 1.25rem; }
+.oneline p { color: var(--muted); margin: .35rem 0 0; }
+
 footer { border-top: 1px solid var(--line); margin-top: 2rem; padding: 1.5rem 0 2.5rem; color: var(--muted); font-size: .85rem; }
 footer a { text-decoration-color: var(--line); }
 
@@ -188,7 +278,7 @@ footer a { text-decoration-color: var(--line); }
 
 .eyebrow {
   margin: 0 0 .5rem; font-size: .74rem; font-weight: 800; letter-spacing: .1em;
-  text-transform: uppercase; color: var(--accent);
+  text-transform: uppercase; color: var(--accent-ink);
 }
 .teaches { color: var(--muted); }
 
@@ -214,7 +304,7 @@ footer a { text-decoration-color: var(--line); }
 /* Solved is a COLOUR, not a dimming: the accent ring and the gold stars say "done", and the
    number stays exactly as legible as it was before it was earned. */
 .tile.done { border-color: var(--accent); }
-.tile.done .s { color: var(--accent); }
+.tile.done .s { color: var(--accent-ink); }
 
 .playhead {
   display: flex; align-items: center; justify-content: space-between; gap: .75rem;
@@ -228,3 +318,8 @@ p.bad { color: var(--broken); font-weight: 700; }
 /* The board half of the chapter page keeps the picker's measure, so switching between them does
    not change how wide the page is. */
 #play { width: 100%; max-width: 46rem; margin: 0 auto; }
+
+/* Safe areas, last so they win over the shorthand paddings above: the header clears the notch and
+   the footer the home indicator. (The body's sides are padded near the top of this file.) */
+.top { padding-top: max(.85rem, env(safe-area-inset-top, 0px)); }
+footer { padding-bottom: max(2.5rem, calc(1rem + env(safe-area-inset-bottom, 0px))); }

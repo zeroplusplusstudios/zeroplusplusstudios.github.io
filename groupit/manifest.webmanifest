@@ -1,0 +1,20 @@
+{
+  "name": "GroupIt",
+  "short_name": "GroupIt",
+  "description": "A two-tone deduction puzzle. Every cell is Light or Shadow.",
+  "lang": "en",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#F6F3EA",
+  "theme_color": "#F6F3EA",
+  "icons": [
+    { "src": "icon.png", "sizes": "512x512", "type": "image/png", "purpose": "any" }
+  ],
+  "related_applications": [
+    { "platform": "play", "id": "com.zeroplusplus.groupit", "url": "https://play.google.com/store/apps/details?id=com.zeroplusplus.groupit" },
+    { "platform": "itunes", "url": "https://apps.apple.com/app/id6801780198" }
+  ],
+  "prefer_related_applications": false
+}

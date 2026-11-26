@@ -1,77 +1,14 @@
-// Ported from Assets/_Project/Scripts/Core/Content/ShareCodec.cs
-//
-// A board as a link. The whole board travels in the link — never a reference to one. The pools
-// re-bake, codes are appended, walks reshuffle: any id-shaped link would rot the day the content
-// moved, and could never carry a board a future build has not baked. So the payload is the
-// board's own toLine — the ls8 codec that already round-trips every board this game has ever
-// shipped — deflated and base64url-armoured. No server, no account, no database.
-//
-// ONE DELIBERATE DIFFERENCE FROM THE C#, forced, and it does not affect the wire format. (There
-// were two: the head used to be https here and `groupit://` there. The C# moved to the same https
-// head on 2026-09-19 — a link nobody without the app can open is not a share — so the only
-// divergence left is the one below, and `looksLikeLink` accepts the retired scheme on both sides.)
-//
-// 1. THESE FUNCTIONS ARE ASYNC. .NET's DeflateStream is synchronous; the browser's only built-in
-//    deflate is CompressionStream, which is a stream. Bundling a synchronous inflate purely to
-//    keep the signature would add a dependency and a second implementation of a thing every
-//    browser already ships. Decoding happens once on page load, so the await costs nothing.
-//
-// Not encrypted, deliberately — the same call the C# makes. Nothing in a board is secret: the
-// solution is stripped before encoding and the receiver re-derives everything it trusts.
 import { BrowserTooOldError, FormatError, NewerBoardError, Puzzle } from './puzzle.js';
-// Re-exported so a caller that already imports the codec need not reach into puzzle.ts for the error.
 export { BrowserTooOldError };
-/**
- * Everything before the version digit — the `#` included.
- *
- * The payload is a FRAGMENT, and that is what makes the link work at all. GitHub Pages serves
- * static files with no rewrite rule, so `/groupit/b/1AbCd` is a 404; `/groupit/b/#1AbCd` is a
- * request for `/groupit/b/`, which is a real page, with the board handed to the script instead of
- * to the server. It never reaches an access log either. Both app-link schemes match on the path
- * and pass the whole URI through, so the installed app still intercepts it.
- */
 export const HeadBase = 'https://zeroplusplusstudios.github.io/groupit/b/#';
-/** The version digit the current payload format wears. Bump when the format changes shape. */
 export const Version = '1';
-/** The link head, version included. */
 export const Head = HeadBase + Version;
-/**
- * The scheme the installed app already emits and registers an intent-filter for. Accepted by
- * `looksLikeLink` and `fromLink` so a link sent before the website existed still opens.
- */
 export const LegacyHead = 'groupit://b/1';
-/**
- * Ceilings against garbage and zip bombs: no real board's line approaches either (the largest
- * shipped board deflates to ~200 bytes).
- */
 const MaxPayloadChars = 4096;
 const MaxLineBytes = 64 * 1024;
-/**
- * The version characters this build reads. One today; a format change appends to it rather than
- * replacing it, so a link of any version this build has ever understood keeps opening.
- */
 export const KnownVersions = [Version];
-/**
- * The scheme the first build emitted, up to but not including the version character
- * (`groupit://b/1…`). It has no `#`: its payload follows the version directly.
- */
 const LegacyScheme = 'groupit://b/';
-/**
- * A version character this build does not know, followed by something the length and alphabet of
- * a board payload. That shape is what a NEWER game's link looks like, and it is deliberately
- * narrower than "anything": a bare `#top` anchor or a half-pasted URL is not a board from the
- * future, and telling its sender to update would be as wrong as telling them it was cut short.
- * Digits only, which is what the C# `ShareCodec.Classify` reads too; the version is one character,
- * so 2 to 9 are the reserved ones, and the day they run out is the day this learns a letter.
- * 16 is under half the shortest real payload (32 characters, the smallest shipped board, a 2x2 drill).
- */
 const NewerShape = /^[2-9][A-Za-z0-9_-]{15,}$/;
-/**
- * The value of a `b` query parameter in some text (`?b=1<payload>`), or null. Every `?` is tried in
- * turn, since a pasted message can carry one in its prose; from each, the parameters up to the first
- * whitespace are split at `&` and the first one named exactly `b` wins. Nothing is percent-decoded:
- * a payload is base64url, which never needs it. Twin of `TryQueryValue` in the C# `ShareCodec`.
- */
 function queryValue(t) {
     for (let q = t.indexOf('?'); q >= 0; q = t.indexOf('?', q + 1)) {
         const params = t.slice(q + 1).split(/\s/)[0];
@@ -82,17 +19,6 @@ function queryValue(t) {
     }
     return null;
 }
-/**
- * The text after the fragment marker (or after the legacy scheme), trimmed — the version
- * character and the payload, or null when the text has neither. Host, path, query and case never
- * matter: a chat app that adds `?fbclid=…`, an address bar that shows `index.html`, an uppercased
- * host and a trailing newline are all the same board, and the board is in the fragment.
- *
- * With no `#` anywhere (2026-10-05, the iPhone link round), the query form `?b=1<payload>` stands in
- * for the fragment, and failing that a `#` that was percent-encoded to `%23` on the way. A fragment,
- * when there is one, always wins. The C# twin (`ShareCodec.ReadShape`) reads the same three forms in
- * the same order, and the golden corpus holds both to it.
- */
 function tailOf(text) {
     if (text === null || text === undefined)
         return null;
@@ -110,14 +36,6 @@ function tailOf(text) {
     const encoded = t.indexOf('%23');
     return encoded < 0 ? null : t.slice(encoded + 3).trim();
 }
-/**
- * The canonical link for any text that carries one of this build's links, or null.
- *
- * THIS IS THE TYPESCRIPT TWIN OF `ShareCodec.Normalise` (C#), and `test/golden.ts` holds the two to
- * the same corpus. It accepts any host, path, query string, `index.html`, letter case, surrounding
- * whitespace and the legacy `groupit://` form, provided the fragment starts with a version this
- * build knows. It does not look inside the payload: `fromLink` is the one place that happens.
- */
 export function normaliseLink(text) {
     const t = tailOf(text);
     if (t === null || t.length < 2 || !KnownVersions.includes(t[0]))
@@ -130,8 +48,6 @@ export function classifyLink(text) {
     const t = tailOf(text);
     return t !== null && NewerShape.test(t) ? 'newer' : 'notOurs';
 }
-/** Cheap gate for "is this even ours" — a known version in the fragment, nothing else. Accepts
- *  the retired `groupit://` form, and (since 2026-10-05) any host, query and `index.html`. */
 export function looksLikeLink(url) {
     return normaliseLink(url) !== null;
 }
@@ -141,13 +57,6 @@ function payloadOf(url) {
         throw new FormatError('not a GroupIt board link');
     return canonical.slice(Head.length).trim();
 }
-/**
- * Whether this browser can open a board link at all. `DecompressionStream` shipped in Chrome 80
- * but learned `'deflate-raw'` only in 103; Firefox 113 and Safari 16.4 have both. A browser that
- * lacks the format throws from the constructor (a missing global is a ReferenceError), so the
- * only honest test is to ask for one. Not cached: it costs one constructor call, and a test must
- * be able to take the API away.
- */
 export function canDecodeLinks() {
     try {
         new DecompressionStream('deflate-raw');
@@ -157,7 +66,6 @@ export function canDecodeLinks() {
         return false;
     }
 }
-// base64url — the alphabet that survives every chat app unescaped: A–Z a–z 0–9 - _
 function armour(bytes) {
     let binary = '';
     for (let i = 0; i < bytes.length; i++)
@@ -165,8 +73,6 @@ function armour(bytes) {
     return btoa(binary).replace(/=+$/, '').replace(/\+/g, '-').replace(/\//g, '_');
 }
 function dearmour(payload) {
-    // Reject before decoding rather than letting atob guess: an unexpected character in a link is
-    // corruption or tampering, and both must land on FormatError like every other refusal.
     if (!/^[A-Za-z0-9_-]+$/.test(payload))
         throw new FormatError('board link payload is not base64url');
     let b64 = payload.replace(/-/g, '+').replace(/_/g, '/');
@@ -192,20 +98,8 @@ function dearmour(payload) {
         bytes[i] = binary.charCodeAt(i);
     return bytes;
 }
-// The buffer parameter is spelled out because TypeScript 5.7 made Uint8Array generic over its
-// backing buffer, and a plain `Uint8Array` therefore includes SharedArrayBuffer-backed views,
-// which the stream APIs will not take. Every caller here allocates its own ArrayBuffer.
 async function through(stream, input, cap) {
     const writer = stream.writable.getWriter();
-    // Not awaited before the reads start: writable and readable are two ends of one pipe, and a
-    // payload larger than the internal buffer deadlocks if you wait for the write to drain before
-    // draining the output.
-    //
-    // The trailing catch is not decoration. When inflate rejects garbage, BOTH ends reject — and
-    // the reader's rejection is the one that escapes this function, so without a handler here the
-    // writer's becomes an unhandled promise rejection. In Node that kills the process; in a
-    // browser it is an uncaught error on the page for every malformed link a stranger is sent.
-    // The reader is the single source of truth for what went wrong, so this one is swallowed.
     const written = writer.write(input).then(() => writer.close()).catch(() => { });
     const reader = stream.readable.getReader();
     const chunks = [];
@@ -228,18 +122,6 @@ async function through(stream, input, cap) {
     }
     return out;
 }
-/**
- * The link for a board.
- *
- * Identity is stripped: an id names a board in a SAVE file, and this board is nobody's save.
- * Solution stripped too — the receiver proves the board out anyway, and a link should not carry
- * the answer to the puzzle it is.
- *
- * The bytes are NOT guaranteed identical to the C#'s for the same board: `deflate-raw` in a
- * browser and .NET's CompressionLevel.Optimal are both valid deflate and pick different
- * encodings. Both decode to the same line, which is the property that matters and the one
- * test/links.ts asserts in each direction.
- */
 export async function link(puzzle) {
     if (puzzle === null || puzzle === undefined)
         throw new Error('puzzle is required');
@@ -253,17 +135,8 @@ export async function link(puzzle) {
     const packed = await through(new CompressionStream('deflate-raw'), raw, MaxLineBytes);
     return Head + armour(packed);
 }
-/**
- * The board in a link. Throws FormatError on anything that is not a well-formed board link of a
- * version this build reads — corruption and cleverness both land there, which is what lets a
- * caller have exactly one thing to catch. Two subclasses and one sibling say WHY, for the page that
- * has to pick a card: `NewerBoardError` (a FormatError: a newer version, rule or clue — update),
- * and `BrowserTooOldError` (not a FormatError: the link may be fine, this browser cannot inflate it).
- */
 export async function fromLink(url) {
     if (normaliseLink(url) === null) {
-        // Ours by shape but a version this build does not read: say so, so the page can ask the
-        // visitor to update rather than blame the link.
         if (classifyLink(url) === 'newer')
             throw new NewerBoardError('board link is a newer version than this build reads');
         throw new FormatError('not a GroupIt board link');
@@ -272,8 +145,6 @@ export async function fromLink(url) {
     if (payload.length === 0 || payload.length > MaxPayloadChars)
         throw new FormatError('board link payload has an impossible length');
     const packed = dearmour(payload);
-    // After the cheap checks, so a link that is plainly damaged is still reported as damaged, and
-    // before the inflate, so a browser without the format is not blamed on the link.
     if (!canDecodeLinks())
         throw new BrowserTooOldError();
     let inflated;
@@ -281,15 +152,10 @@ export async function fromLink(url) {
         inflated = await through(new DecompressionStream('deflate-raw'), packed, MaxLineBytes);
     }
     catch (e) {
-        // The cap above already throws FormatError; everything else here is malformed deflate,
-        // which to a receiver is the same single fact.
         if (e instanceof FormatError)
             throw e;
         throw new FormatError('board link payload is not deflate data', { cause: e });
     }
-    // fromLine throws FormatError on unknown tokens — but a bent payload can also inflate to a
-    // line whose FIELDS parse and whose VALUES are impossible, which the Puzzle constructor
-    // rejects as a plain Error instead. To a receiver they are the same fact.
     try {
         return Puzzle.fromLine(new TextDecoder().decode(inflated));
     }
@@ -299,4 +165,3 @@ export async function fromLink(url) {
         throw new FormatError('board link decoded to an impossible board', { cause: e });
     }
 }
-//# sourceMappingURL=shareCodec.js.map

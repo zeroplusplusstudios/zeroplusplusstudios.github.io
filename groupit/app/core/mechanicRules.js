@@ -1,17 +1,3 @@
-// Ported from Assets/_Project/Scripts/Core/Model/MechanicRules.cs
-//
-// The board-wide laws. Fifteen of the 32 mechanics are a law rather than a clue kind, and each
-// gets two readings: verify on a complete grid (truth) and evaluate on a partial one (feedback).
-//
-// EVERY LIVE DETECTOR HERE IS DELIBERATELY CONSERVATIVE, and each carries the C# argument for
-// why. The bar is the same one ClueEval sets: replaying a legal answer one mark at a time, in
-// ANY order, must never raise a flag. That is why the comparison laws say nothing until both
-// patches are SEALED, and why several sound-on-paper tightenings are explicitly declined.
-//
-// Note the two places that deliberately do NOT go through puzzle.neighbour: One Sky, All One
-// Colour and Stray Light step DirRow/DirCol raw, because none of those laws ever shares a board
-// with walls, a seam or voids. Carried across verbatim rather than "improved" — a flood that
-// starts respecting walls on a board that has none is a behaviour change dressed as a cleanup.
 import { Mechanic } from './mechanic.js';
 import * as Regions from './regions.js';
 import { ClueKind, Mark, Tone } from './types.js';
@@ -59,16 +45,16 @@ export function evaluateLaw(p, marks, status) {
             evaluateWindowlight(p, marks, status);
             break;
         case Mechanic.Rollcall:
-            evaluateSealedPairs(p, marks, status, 0 /* Law.Rollcall */);
+            evaluateSealedPairs(p, marks, status, 0);
             break;
         case Mechanic.Silhouette:
-            evaluateSealedPairs(p, marks, status, 1 /* Law.Silhouette */);
+            evaluateSealedPairs(p, marks, status, 1);
             break;
         case Mechanic.NeverTheLongStep:
             evaluateNeverTheLongStep(p, marks, status);
             break;
         case Mechanic.UnlikeNeighbours:
-            evaluateSealedPairs(p, marks, status, 2 /* Law.Unlike */);
+            evaluateSealedPairs(p, marks, status, 2);
             break;
         case Mechanic.Weir:
             evaluateWeir(p, marks, status);
@@ -85,14 +71,6 @@ export function evaluateLaw(p, marks, status) {
         default: break;
     }
 }
-// ───────────────────────────────────────────────────────────────── Windowlight
-// No 2x2 block holds exactly three Light. That local ban is EQUIVALENT to the sentence the
-// player is taught — every maximal Light region is a solid rectangle — and the equivalence was
-// measured rather than asserted: over all 33,554,432 grids at 5x5 and 4,000,000 sampled at each
-// of 6x5 and 7x5, zero mismatches in either direction.
-//
-// It is the exact inversion of NoFullCourtyard on the same window: a courtyard sees three alike
-// and forbids the fourth, this sees three lit and REQUIRES it.
 function verifyWindowlight(p, grid) {
     const rows = p.rows, cols = p.cols;
     for (let r = 0; r + 1 < rows; r++)
@@ -112,9 +90,6 @@ function verifyWindowlight(p, grid) {
         }
     return true;
 }
-// Live detector: a fully-committed window holding exactly three Lights is final, because
-// committed marks do not move. A legal answer contains no such window, so replaying one mark by
-// mark in any order never completes one.
 function evaluateWindowlight(p, marks, status) {
     const rows = p.rows, cols = p.cols;
     for (let r = 0; r + 1 < rows; r++)
@@ -138,11 +113,6 @@ function evaluateWindowlight(p, marks, status) {
             status.brokenLawCount++;
         }
 }
-// ───────────────────────────────────────────────────────── Never the Long Step
-// No two Light cells sit a knight's move apart. Shadow is entirely unconstrained, and THAT
-// ASYMMETRY IS THE MECHANIC rather than an oversight: a knight always changes square colour, so
-// the knight graph is bipartite and connected on every board this game ships, which makes the
-// symmetric version admit exactly two answers on any board — the two chessboard colourings.
 function verifyNeverTheLongStep(p, grid) {
     const rows = p.rows, cols = p.cols;
     for (let i = 0; i < rows * cols; i++) {
@@ -159,7 +129,6 @@ function verifyNeverTheLongStep(p, grid) {
     }
     return true;
 }
-// Live detector: two COMMITTED Lights a long step apart are final.
 function evaluateNeverTheLongStep(p, marks, status) {
     const rows = p.rows, cols = p.cols;
     for (let i = 0; i < rows * cols; i++) {
@@ -172,16 +141,13 @@ function evaluateNeverTheLongStep(p, marks, status) {
                 continue;
             const ni = nr * cols + nc;
             if (ni < i || marks[ni] !== Mark.Light)
-                continue; // each pair once
+                continue;
             status.cellBroken[i] = 1;
             status.cellBroken[ni] = 1;
             status.brokenLawCount++;
         }
     }
 }
-// ──────────────────────────────────────────────────────────────────── The Weir
-// Ordered pairs, and the first asymmetric relation in the game: tail Light implies head Light,
-// and never the reverse. The contrapositive is the half a player actually uses.
 function verifyWeir(p, grid) {
     if (p.pairs === null)
         return true;
@@ -190,7 +156,6 @@ function verifyWeir(p, grid) {
             return false;
     return true;
 }
-// Live detector: a committed Light tail above a committed non-Light head can never agree again.
 function evaluateWeir(p, marks, status) {
     if (p.pairs === null)
         return;
@@ -205,10 +170,6 @@ function evaluateWeir(p, marks, status) {
         status.brokenLawCount++;
     }
 }
-// ────────────────────────────────────────────────────────────────── The Scales
-// A chevron in the gap between two adjacent cells: the patch on the heavy side is STRICTLY
-// larger than the patch on the light side. Two adjacent cells of one tone are one patch and no
-// patch outweighs itself, so a chevron also splits the tones.
 function verifyScales(p, grid) {
     if (p.pairs === null)
         return true;
@@ -216,16 +177,13 @@ function verifyScales(p, grid) {
     for (let i = 0; i < p.pairs.length; i += 2) {
         const heavy = p.pairs[i], light = p.pairs[i + 1];
         if (grid[heavy] === grid[light])
-            return false; // one patch, or a tie
+            return false;
         if (sizeOf[heavy] <= sizeOf[light])
             return false;
     }
     return true;
 }
 function evaluateScales(p, marks, status) {
-    // Hoisted, not re-read through `p` below: the components() call between the guard and the
-    // loop resets TypeScript's narrowing of a property access, so `p.pairs[i]` there is
-    // `Int32Array | null` again and the guard above stops meaning anything.
     const pairs = p.pairs;
     if (pairs === null)
         return;
@@ -235,8 +193,6 @@ function evaluateScales(p, marks, status) {
         if (marks[heavy] === Mark.Unknown || marks[light] === Mark.Unknown)
             continue;
         let broken = marks[heavy] === marks[light];
-        // Sizes only once both patches are sealed. An open patch's size is a floor and nothing
-        // more, and rejecting on a floor prunes flawless play.
         if (!broken) {
             const a = comp[heavy], b = comp[light];
             if (a >= 0 && b >= 0 && !open[a] && !open[b] && size[a] <= size[b])
@@ -249,11 +205,6 @@ function evaluateScales(p, marks, status) {
         status.brokenLawCount++;
     }
 }
-// ───────────────────────────────── Rollcall · Silhouette · Unlike Neighbours
-// Three laws that compare one finished patch against another, and therefore three laws whose
-// live detector can say nothing at all until both patches are SEALED. That is not timidity, it
-// is the only sound reading: an open component may still grow, may still merge with another
-// component of its tone through an Unknown, and may end up any shape at all.
 function verifyRollcall(p, grid) {
     const { n, label, sizes } = labelBoard(p, grid);
     const toneOf = tonePerRegion(p, grid, label, n);
@@ -295,10 +246,6 @@ function verifyUnlikeNeighbours(p, grid) {
     }
     return true;
 }
-/**
- * The shared live detector for the three comparison laws: flood the committed marks, then
- * compare SEALED components only.
- */
 function evaluateSealedPairs(p, marks, status, law) {
     const { comp, size, open, members } = components(p, marks);
     const n = size.length;
@@ -312,10 +259,10 @@ function evaluateSealedPairs(p, marks, status, law) {
                 continue;
             let clash;
             switch (law) {
-                case 0 /* Law.Rollcall */:
+                case 0:
                     clash = marks[members[a][0]] === marks[members[b][0]] && size[a] === size[b];
                     break;
-                case 1 /* Law.Silhouette */:
+                case 1:
                     clash = marks[members[a][0]] === Mark.Light && marks[members[b][0]] === Mark.Light &&
                         shapeOf(p, members[a]) === shapeOf(p, members[b]);
                     break;
@@ -369,11 +316,6 @@ function tonePerRegion(p, grid, label, n) {
             toneOf[label[i]] = grid[i];
     return toneOf;
 }
-/**
- * Components of COMMITTED marks, with Unknown acting as a wall — the same shape ClueEval's
- * region pass builds, and the same meaning: a component here is what is already provably one
- * patch, and `open` says whether it can still change.
- */
 function components(p, marks) {
     const cells = p.cellCount;
     const comp = new Int32Array(cells).fill(-1);
@@ -414,10 +356,6 @@ function components(p, marks) {
     }
     return { comp, size, open, members };
 }
-// ────────────────────────────────────────────────────────────────── Never Three
-// No three cells in a row or column share a tone. The line sibling of NoFullCourtyard's square,
-// and the sharper of the two to play: a courtyard needs three committed corners before it says
-// anything, where this fires off two.
 function verifyNeverThree(p, grid) {
     const rows = p.rows, cols = p.cols;
     for (let r = 0; r < rows; r++)
@@ -434,7 +372,6 @@ function verifyNeverThree(p, grid) {
         }
     return true;
 }
-// Live detector: three committed cells alike in a line are final.
 function evaluateNeverThree(p, marks, status) {
     const rows = p.rows, cols = p.cols;
     for (let r = 0; r < rows; r++)
@@ -460,14 +397,9 @@ function evaluateNeverThree(p, marks, status) {
             status.brokenLawCount++;
         }
 }
-// ───────────────────────────────────────────────────────────────────── One Sky
-// All Shadow forms a single connected piece. A board with no Shadow at all satisfies the law
-// vacuously.
 function verifyOneSky(p, grid) {
     return verifyOneColour(p, grid, Tone.Shadow);
 }
-// All One Colour is One Sky with the tone swapped, so the two share a body. The C# spells both
-// out; folding them is safe because neither reads anything but the tone it is given.
 function verifyOneColour(p, grid, want) {
     const rows = p.rows, cols = p.cols, cells = rows * cols;
     let start = -1, total = 0;
@@ -501,14 +433,6 @@ function verifyOneColour(p, grid, want) {
     }
     return reached === total;
 }
-// Live detector: flood the {want ∪ Unknown} area around the first committed cell of that tone.
-// A committed cell of that tone outside the area can never connect to it — every joining path
-// would pass through a committed cell of the other tone — and the law allows exactly one piece,
-// so the whole colour is wrong together and gets the wash together.
-//
-// Conservative because on a replayed answer every answer cell of that tone is either already
-// committed or still Unknown, so the answer's single component lies entirely inside one
-// {want ∪ Unknown} area — no split is ever seen.
 function evaluateOneColour(p, marks, status, want) {
     const rows = p.rows, cols = p.cols, cells = rows * cols;
     let start = -1;
@@ -555,9 +479,6 @@ function evaluateOneColour(p, marks, status, want) {
 function evaluateOneSky(p, marks, status) {
     evaluateOneColour(p, marks, status, Mark.Shadow);
 }
-// ─────────────────────────────────────────────────────────── No Full Courtyard
-// No 2x2 block may be a single tone — any single tone, Gold included, though Gold never
-// actually shares a board with a law.
 function verifyNoFullCourtyard(p, grid) {
     const rows = p.rows, cols = p.cols;
     for (let r = 0; r + 1 < rows; r++)
@@ -569,7 +490,6 @@ function verifyNoFullCourtyard(p, grid) {
         }
     return true;
 }
-// Live detector: a fully-committed monochrome 2x2 is final.
 function evaluateNoFullCourtyard(p, marks, status) {
     const rows = p.rows, cols = p.cols;
     for (let r = 0; r + 1 < rows; r++)
@@ -587,9 +507,6 @@ function evaluateNoFullCourtyard(p, marks, status) {
             status.brokenLawCount++;
         }
 }
-// ───────────────────────────────────────────────────────────────────── Duskfall
-// Night falls from the top: in every column, all Shadow sits above all Light. A Light strictly
-// above a Shadow in the same column breaks the law.
 function verifyDuskfall(p, grid) {
     const rows = p.rows, cols = p.cols;
     for (let c = 0; c < cols; c++) {
@@ -604,7 +521,6 @@ function verifyDuskfall(p, grid) {
     }
     return true;
 }
-// Live detector: a committed Light above a committed Shadow is final.
 function evaluateDuskfall(p, marks, status) {
     const rows = p.rows, cols = p.cols;
     for (let c = 0; c < cols; c++) {
@@ -618,7 +534,6 @@ function evaluateDuskfall(p, marks, status) {
         }
         if (firstLightRow >= lastShadowRow)
             continue;
-        // Wash every cell of the column that takes part in some inverted pair.
         status.brokenLawCount++;
         for (let r = 0; r < rows; r++) {
             const m = marks[r * cols + c];
@@ -629,12 +544,8 @@ function evaluateDuskfall(p, marks, status) {
         }
     }
 }
-// ─────────────────────────────────────────────────────────────── No Stray Light
-// Every Light region must contain a Light region clue.
 function verifyStrayLight(p, grid) {
     const rows = p.rows, cols = p.cols, cells = rows * cols;
-    // Deliberately the plain labelling — no walls, no wrap, no voids. Stray Light never shares a
-    // board with any of them, and the C# passes none. Carried across as written.
     const label = new Int32Array(cells);
     const n = Regions.label(grid, rows, cols, label, null);
     const hasClue = new Uint8Array(n);
@@ -648,11 +559,6 @@ function verifyStrayLight(p, grid) {
             return false;
     return true;
 }
-// Live detector: a committed Light pool whose entire frontier is committed is final — it is a
-// maximal Light region in every completion — so if no Light region clue sits inside it, no
-// completion licenses it. Deliberately NOT here: flagging a pool that merely cannot reach any
-// Light clue through its remaining Unknowns. That rule is sound on paper and one subtle
-// reachability bug away from flagging flawless play; verify catches those boards at the end.
 function evaluateStrayLight(p, marks, status) {
     const rows = p.rows, cols = p.cols, cells = rows * cols;
     const component = new Int32Array(cells).fill(-1);
@@ -701,9 +607,6 @@ function evaluateStrayLight(p, marks, status) {
             status.cellBroken[m] = 1;
     }
 }
-// ───────────────────────────────────────────────────────────────────── Gas Line
-// Every group's members share one tone. The tap UI flips a group together, but undo, seeds and
-// hand-built marks can still disagree — the law is the truth, not the UI.
 function verifyGasLine(p, grid) {
     if (p.groups === null)
         return true;
@@ -715,7 +618,6 @@ function verifyGasLine(p, grid) {
     }
     return true;
 }
-// Live detector: two committed members with different marks can never agree again.
 function evaluateGasLine(p, marks, status) {
     if (p.groups === null)
         return;
@@ -740,18 +642,12 @@ function evaluateGasLine(p, marks, status) {
             status.cellBroken[cell] = 1;
     }
 }
-// ────────────────────────────────────────────────────────────── All One Colour
-// One Sky with the tone swapped: all LIGHT forms a single connected piece.
 function verifyAllOneColour(p, grid) {
     return verifyOneColour(p, grid, Tone.Light);
 }
 function evaluateAllOneColour(p, marks, status) {
     evaluateOneColour(p, marks, status, Mark.Light);
 }
-// ────────────────────────────────────────────────────────────────── Even Split
-// Every row and every column holds exactly half Light, half Shadow — no printed clue anywhere;
-// the target is the line's own length. Chapters carrying this keep both rows and cols even
-// throughout, so "half" is always a whole number.
 function verifyEvenSplit(p, grid) {
     const rows = p.rows, cols = p.cols;
     for (let r = 0; r < rows; r++) {
@@ -772,8 +668,6 @@ function verifyEvenSplit(p, grid) {
     }
     return true;
 }
-// Live detector: a row or column whose committed cells already spend more than half of either
-// tone cannot recover in any completion.
 function evaluateEvenSplit(p, marks, status) {
     const rows = p.rows, cols = p.cols;
     const rowTarget = Math.floor(cols / 2), colTarget = Math.floor(rows / 2);
@@ -808,4 +702,3 @@ function evaluateEvenSplit(p, marks, status) {
             status.cellBroken[r * cols + c] = 1;
     }
 }
-//# sourceMappingURL=mechanicRules.js.map
